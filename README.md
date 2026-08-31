@@ -12,18 +12,42 @@
 - 定时或立即扫描；SHA-256 内容指纹去重，只对新增结果告警
 - 钉钉机器人（支持加签）、企业微信机器人、SMTP 邮件
 - Fernet 加密敏感配置和监控值
-- FastAPI、SQLite/PostgreSQL、Docker Compose、GitHub Actions CI
+- FastAPI、SQLite/PostgreSQL、Python 虚拟环境和 systemd
 
-## 快速开始
+## LXC 原生部署
+
+适用于 Debian 12、Ubuntu 22.04/24.04 LXC。建议容器至少分配 1 核 CPU、1 GB 内存和 5 GB 磁盘。
 
 ```bash
-cp .env.example .env
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# 将输出写入 MASTER_KEY，并修改 JWT_SECRET_KEY / ADMIN_PASSWORD
-docker compose up -d --build
+apt-get update && apt-get install -y git
+git clone https://github.com/bobxzy-0/leak-sentinel.git
+cd leak-sentinel
+sudo bash deploy/install-lxc.sh
 ```
 
-访问 `http://localhost:8000/docs`。健康检查：`GET /health`。
+生成密钥并编辑配置：
+
+```bash
+/opt/leak-sentinel/.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+openssl rand -hex 32
+nano /etc/leak-sentinel/leak-sentinel.env
+systemctl enable --now leak-sentinel
+systemctl status leak-sentinel
+journalctl -u leak-sentinel -f
+```
+
+服务默认只监听 `127.0.0.1:8000`。健康检查：`curl http://127.0.0.1:8000/health`，API 文档：`http://127.0.0.1:8000/docs`。
+
+需要从外部访问时，安装 Nginx 并参考 `deploy/nginx.conf.example` 配置反向代理，然后使用 Certbot 或现有网关配置 HTTPS。不要直接将 Uvicorn 的 8000 端口暴露到公网。
+
+### 更新版本
+
+```bash
+cd /root/leak-sentinel
+git pull --ff-only
+sudo bash deploy/install-lxc.sh
+sudo systemctl restart leak-sentinel
+```
 
 ```bash
 # 登录
