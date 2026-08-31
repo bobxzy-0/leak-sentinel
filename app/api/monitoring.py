@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, HttpUrl
@@ -7,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.crypto import crypto_service
 from app.core.database import get_db
-from app.models.models import AlertChannel, ChannelTypeEnum, Finding, MonitoredAsset, User
+from app.models.models import AlertChannel, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, User
+from app.services.providers import HudsonRockProvider
 from app.services.scanner import scan_asset
 
 router = APIRouter()
@@ -19,6 +21,32 @@ class ChannelCreate(BaseModel):
     webhook_url: HttpUrl | None = None
     secret: str | None = None
     recipients: list[EmailStr] = []
+
+
+class FreeSearchRequest(BaseModel):
+    target_type: Literal["domain", "email", "username"]
+    value: str
+
+
+@router.post("/search/free")
+async def free_search(body: FreeSearchRequest, user: User = Depends(get_current_user)):
+    """Run a one-off Hudson Rock community lookup without saving an asset."""
+    if not user:
+        raise HTTPException(401, "Authentication required")
+    value = body.value.strip()
+    if not value or len(value) > 320:
+        raise HTTPException(422, "Invalid search value")
+    results = await HudsonRockProvider().search(AssetTypeEnum(body.target_type), value)
+    return {
+        "provider": "hudson_rock_community",
+        "target_type": body.target_type,
+        "value": value,
+        "total": len(results),
+        "items": [
+            {"external_ref": r.external_ref, "severity": r.severity, "data": r.data}
+            for r in results
+        ],
+    }
 
 
 @router.post("/assets/{asset_id}/scan")
