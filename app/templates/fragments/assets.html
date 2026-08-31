@@ -1,0 +1,70 @@
+<div class="flex justify-between items-end mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-slate-900 tracking-tight">监控资产</h1>
+        <p class="text-slate-500 mt-2 text-sm">管理您需要持续监控的邮箱、域名与凭证</p>
+    </div>
+    <button hx-get="/views/assets/new" hx-target="#modal-container" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm">
+        + 添加资产
+    </button>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50/50">
+            <tr>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">资产名称</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">值 / 域名</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">类型</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">状态</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">上次检查</th>
+                <th class="px-6 py-4 text-right font-semibold text-slate-600">操作</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-100">
+            {% if assets %}
+                {% for asset in assets %}
+                <tr>
+                    <td class="px-6 py-4 text-slate-900 font-medium">{{ asset.label or '--' }}</td>
+                    <td class="px-6 py-4 text-slate-700">{{ asset.value }}</td>
+                    <td class="px-6 py-4 text-slate-500">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                            {{ asset.asset_type.value }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if asset.asset_type.value == 'domain' and not asset.is_domain_verified %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                待验证
+                            </span>
+                        {% elif asset.status.value == 'active' %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                监控中
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                                已暂停
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-slate-500">{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</td>
+                    <td class="px-6 py-4 text-right space-x-3">
+                        {% if asset.asset_type.value == 'domain' and not asset.is_domain_verified %}
+                            <button hx-put="/api/assets/{{ asset.id }}/verify" hx-swap="none" onclick="setTimeout(()=>htmx.ajax('GET', '/views/assets', {target: '#main-content'}), 500)" class="text-blue-600 hover:text-blue-900 font-medium transition-colors">完成验证</button>
+                        {% endif %}
+                        <button hx-delete="/api/assets/{{ asset.id }}" hx-swap="none" onclick="setTimeout(()=>htmx.ajax('GET', '/views/assets', {target: '#main-content'}), 500)" class="text-rose-600 hover:text-rose-900 font-medium transition-colors">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="6" class="px-6 py-16 text-center text-slate-400">
+                        暂无监控资产。请点击右上角“添加资产”以开始监控。
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

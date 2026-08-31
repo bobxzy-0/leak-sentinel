@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex justify-between items-end mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-slate-900 tracking-tight">监控资产</h1>
+        <p class="text-slate-500 mt-2 text-sm">管理您需要持续监控的邮箱、域名与凭证</p>
+    </div>
+    <button class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm">
+        + 添加资产
+    </button>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50/50">
+            <tr>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">资产名称</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">类型</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">状态</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">上次检查</th>
+                <th class="px-6 py-4 text-right font-semibold text-slate-600">操作</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-100">
+            <tr>
+                <td colspan="5" class="px-6 py-16 text-center text-slate-400">
+                    暂无监控资产。请点击右上角“添加资产”以开始监控。
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ app_name }}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans SC', sans-serif; }
+    </style>
+    <script>
+        const token = localStorage.getItem('access_token');
+        if (!token) { window.location.href = '/login'; }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
+    <script>
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                evt.detail.headers['Authorization'] = 'Bearer ' + token;
+            }
+        });
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            if (evt.detail.xhr.status === 401) {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+            }
+        });
+    </script>
+
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-20">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+            <div class="text-lg font-bold flex items-center gap-3 text-slate-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                {{ app_name }}
+            </div>
+            <div class="flex items-center space-x-8">
+                <div class="space-x-8 text-sm font-medium text-slate-600">
+                    <a hx-get="/views/dashboard" hx-target="#main-content" hx-push-url="/" class="cursor-pointer hover:text-blue-600 transition-colors">仪表盘</a>
+                    <a hx-get="/views/assets" hx-target="#main-content" hx-push-url="/assets" class="cursor-pointer hover:text-blue-600 transition-colors">监控资产</a>
+                    <a hx-get="/views/settings" hx-target="#main-content" hx-push-url="/settings" class="cursor-pointer hover:text-blue-600 transition-colors">系统设置</a>
+                </div>
+                <div hx-get="/views/nav_user" hx-trigger="load"></div>
+            </div>
+        </div>
+    </nav>
+    <main id="main-content" class="max-w-7xl mx-auto px-6 py-10">
+        <!-- Will be populated by JS on load based on pathname -->
+    </main>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const path = window.location.pathname;
+            let endpoint = '/views/dashboard';
+            if (path === '/assets') endpoint = '/views/assets';
+            if (path === '/settings') endpoint = '/views/settings';
+            htmx.ajax('GET', endpoint, {target: '#main-content'});
+        });
+        
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+    </script>
+    <div id="modal-container"></div>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-10">
+    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">安全概览</h1>
+    <p class="text-slate-500 mt-2 text-sm">您的全网数据泄露监控摘要</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">监控资产数</h3>
+        <p class="text-4xl font-bold mt-4 text-slate-900">{{ assets_count }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">7日内新发现</h3>
+        <p class="text-4xl font-bold mt-4 text-rose-600">{{ new_findings_count }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">告警触达率</h3>
+        <p class="text-4xl font-bold mt-4 text-emerald-600">100<span class="text-2xl text-emerald-500">%</span></p>
+    </div>
+</div>
+
+<div class="mt-10 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="p-6 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-900">最近告警记录</h3>
+    </div>
+    <div class="p-8 text-center">
+        <p class="text-slate-400 text-sm">暂无近期告警数据，您的资产目前很安全。</p>
+    </div>
+</div>
+{% endblock %}

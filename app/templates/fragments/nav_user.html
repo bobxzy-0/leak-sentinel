@@ -1,0 +1,9 @@
+<div class="flex items-center gap-4 pl-8 border-l border-slate-200">
+    <div class="text-sm">
+        <p class="font-medium text-slate-700">{{ current_user.display_name or current_user.email.split('@')[0] }}</p>
+        <p class="text-xs text-slate-400">{{ current_user.email }}</p>
+    </div>
+    <button onclick="logout()" class="text-sm text-slate-500 hover:text-rose-600 font-medium transition-colors">
+        退出
+    </button>
+</div>
