@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
-import os
 from app.api.deps import get_current_user
 from sqlalchemy.orm import Session
 from app.models.models import MonitoredAsset
 from app.core.crypto import crypto_service
+from app.core.config import settings
 from app.core.database import get_db
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
 
-APP_NAME = os.getenv("APP_NAME", "HIBP 数据泄露监控平台")
+APP_NAME = settings.APP_NAME
 
 @router.get("/login")
 async def login_page(request: Request):
