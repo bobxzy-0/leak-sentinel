@@ -27,7 +27,7 @@
                 {% for asset in assets %}
                 <tr draggable="true" data-asset-id="{{ asset.id }}" class="asset-row cursor-default">
                     <td class="px-3 py-4 text-center text-slate-400 cursor-grab select-none drag-handle" title="按住拖动排序">⋮⋮</td>
-                    <td class="px-4 py-4 text-slate-900 font-medium overflow-hidden"><div class="truncate" title="{{ asset.label or '--' }}">{{ asset.label or '--' }}</div><div class="truncate text-xs text-slate-400 mt-1" title="{% if asset.site_filter_mode == 'only' %}{{ (asset.watched_sites_json or [])|join(', ') }}{% else %}全网监控{% endif %}">{% if asset.site_filter_mode == 'only' %}关注 {{ (asset.watched_sites_json or [])|length }} 个网站{% else %}全网监控{% endif %}</div></td>
+                    <td class="px-4 py-4 text-slate-900 font-medium"><div class="truncate" title="{{ asset.label or '--' }}">{{ asset.label or '--' }}</div>{% if asset.site_filter_mode == 'only' %}<div class="relative group w-fit max-w-full"><div class="truncate text-xs text-blue-500 mt-1 cursor-help">关注 {{ (asset.watched_sites_json or [])|length }} 个网站</div><div class="hidden group-hover:block absolute left-0 top-full mt-2 z-40 w-72 max-h-56 overflow-y-auto whitespace-normal rounded-xl bg-slate-900 text-white text-xs font-normal shadow-xl p-3"><div class="font-semibold mb-2">全部关注网站</div>{% for site in asset.watched_sites_json or [] %}<div class="py-1 break-all">{{ site }}</div>{% endfor %}</div></div>{% else %}<div class="truncate text-xs text-slate-400 mt-1">全网监控</div>{% endif %}</td>
                     <td class="px-4 py-4 text-slate-700 overflow-hidden"><div class="truncate" title="{{ asset.value }}">{{ asset.value }}</div></td>
                     <td class="px-4 py-4 text-slate-500 overflow-hidden">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
@@ -95,6 +95,7 @@
     </table>
 </div>
 <div id="finding-detail-modal"></div>
+<div id="scope-modal"></div>
 
 <script>
 (() => {
@@ -132,12 +133,20 @@
         if (!response.ok) htmx.ajax('GET', '/views/assets', {target: '#main-content'});
     });
 })();
-async function editAssetScope(id, currentSites) {
-    const value = prompt('每行一个网站。留空将切换为全网监控；支持 example.com 和 *.example.com', currentSites.join('\n'));
-    if (value === null) return;
-    const sites = value.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
-    const response = await fetch(`/api/assets/${id}/scope`, {method:'PUT', headers:{'Authorization':'Bearer '+localStorage.getItem('access_token'),'Content-Type':'application/json'}, body:JSON.stringify({site_filter_mode: sites.length ? 'only' : 'all', watched_sites: sites})});
-    if (response.ok) htmx.ajax('GET', '/views/assets', {target:'#main-content'}); else alert((await response.json()).detail || '保存失败');
+function editAssetScope(id, currentSites) {
+    const modal = document.getElementById('scope-modal');
+    modal.innerHTML = `<div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4" onclick="if(event.target===this)closeScopeModal()"><div class="bg-white rounded-2xl shadow-xl w-full max-w-xl"><div class="p-5 border-b flex justify-between items-center"><div><h3 class="font-bold text-lg">设置关注网站</h3><p class="text-xs text-slate-500 mt-1">每行输入一个网站，支持 example.com 和 *.example.com</p></div><button type="button" onclick="closeScopeModal()" class="text-slate-500">关闭</button></div><div class="p-5"><textarea id="scope-sites-input" rows="10" class="w-full px-3 py-3 border border-slate-300 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="example.com\n*.partner.example.com"></textarea><div id="scope-modal-error" class="hidden mt-3 text-sm text-rose-600"></div></div><div class="p-5 bg-slate-50 rounded-b-2xl flex justify-between gap-3"><button type="button" onclick="saveAssetScope(${id}, true)" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-700">切换为全网监控</button><div class="flex gap-3"><button type="button" onclick="closeScopeModal()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm">取消</button><button type="button" onclick="saveAssetScope(${id}, false)" class="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm">保存</button></div></div></div></div>`;
+    document.getElementById('scope-sites-input').value = currentSites.join('\n');
+    document.getElementById('scope-sites-input').focus();
+}
+function closeScopeModal(){document.getElementById('scope-modal').innerHTML=''}
+async function saveAssetScope(id, useAll) {
+    const input = document.getElementById('scope-sites-input');
+    const sites = useAll ? [] : input.value.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
+    const errorBox = document.getElementById('scope-modal-error');
+    if (!useAll && !sites.length) {errorBox.textContent='请至少输入一个网站，或选择“切换为全网监控”';errorBox.classList.remove('hidden');return}
+    const response = await fetch(`/api/assets/${id}/scope`, {method:'PUT', headers:{'Authorization':'Bearer '+localStorage.getItem('access_token'),'Content-Type':'application/json'}, body:JSON.stringify({site_filter_mode:useAll?'all':'only',watched_sites:sites})});
+    if (response.ok) {closeScopeModal();htmx.ajax('GET','/views/assets',{target:'#main-content'})} else {const result=await response.json();errorBox.textContent=result.detail||'保存失败';errorBox.classList.remove('hidden')}
 }
 function detailValue(data, keys, fallback='数据源未提供'){for(const key of keys){if(data[key]!==undefined&&data[key]!==null&&data[key]!=='')return Array.isArray(data[key])?data[key].join('、'):String(data[key])}return fallback}
 function escapeHtml(value){const d=document.createElement('div');d.textContent=String(value);return d.innerHTML}
