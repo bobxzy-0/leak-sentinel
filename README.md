@@ -12,6 +12,8 @@
 - 定时或立即扫描；SHA-256 内容指纹去重，只对新增结果告警
 - 资产拖动排序；手动检测后 24 小时内自动任务跳过，保证每天最多自动检查一次
 - 情报源独立状态图标、命中数量和第三方接口调用日志
+- 每条资产可选择全网监控或仅关注指定网站（支持 `example.com`、`*.example.com`）；调用日志记录原始返回、有效命中和过滤数量
+- 泄漏详情展示事件日期、关联网站和泄漏数据类别（以数据源实际返回为准）
 - 钉钉机器人（支持加签）、企业微信机器人、SMTP 邮件
 - Fernet 加密敏感配置和监控值
 - FastAPI、SQLite/PostgreSQL、Python 虚拟环境和 systemd
@@ -81,6 +83,8 @@ curl -X POST http://localhost:8000/api/search/free \
 
 ### 告警渠道
 
+可直接在“系统设置 → 告警通道”添加、启停、删除和测试发送。Webhook 地址、钉钉加签密钥及收件人均使用 `MASTER_KEY` 加密保存。只有去重后的新增有效发现会发送告警。
+
 ```bash
 curl -X POST http://localhost:8000/api/channels \
   -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
@@ -88,6 +92,14 @@ curl -X POST http://localhost:8000/api/channels \
 ```
 
 企业微信使用 `channel_type: wecom`；邮件使用 `channel_type: email` 和 `recipients` 数组，并在 `.env` 配置 SMTP。
+
+关注网站示例：
+
+```json
+{"asset_type":"username","label":"企业账号","value":"example-user","site_filter_mode":"only","watched_sites":["example.com","*.partner.example"]}
+```
+
+密码泄漏接口无法提供关联网站，因此密码、API 密钥和令牌不支持关注网站过滤。
 
 ## 数据源
 

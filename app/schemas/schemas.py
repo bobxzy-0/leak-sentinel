@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 from app.models.models import RoleEnum, AssetTypeEnum, AssetStatusEnum
 
@@ -30,6 +30,8 @@ class AssetCreate(BaseModel):
     asset_type: AssetTypeEnum
     label: Optional[str] = None
     value: str
+    site_filter_mode: Literal["all", "only"] = "all"
+    watched_sites: list[str] = []
 
 class AssetResponse(BaseModel):
     id: int
@@ -40,6 +42,8 @@ class AssetResponse(BaseModel):
     is_domain_verified: bool
     last_checked_at: Optional[datetime]
     sort_order: int
+    site_filter_mode: str
+    watched_sites: list[str]
     created_at: datetime
     
     model_config = {"from_attributes": True}

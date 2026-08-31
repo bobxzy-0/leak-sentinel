@@ -32,6 +32,29 @@ def ensure_schema_compatibility():
             connection.execute(text(
                 "ALTER TABLE monitored_assets ADD COLUMN provider_status_json JSON"
             ))
+    if "site_filter_mode" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE monitored_assets ADD COLUMN site_filter_mode VARCHAR NOT NULL DEFAULT 'all'"
+            ))
+    if "watched_sites_json" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE monitored_assets ADD COLUMN watched_sites_json JSON"
+            ))
+    inspector = inspect(engine)
+    if "provider_call_logs" in inspector.get_table_names():
+        call_columns = {column["name"] for column in inspector.get_columns("provider_call_logs")}
+        if "returned_count" not in call_columns:
+            with engine.begin() as connection:
+                connection.execute(text(
+                    "ALTER TABLE provider_call_logs ADD COLUMN returned_count INTEGER NOT NULL DEFAULT 0"
+                ))
+        if "filtered_count" not in call_columns:
+            with engine.begin() as connection:
+                connection.execute(text(
+                    "ALTER TABLE provider_call_logs ADD COLUMN filtered_count INTEGER NOT NULL DEFAULT 0"
+                ))
 
 def ensure_admin():
     db = SessionLocal()

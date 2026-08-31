@@ -18,13 +18,14 @@ class EmailChannel(AlertChannelBase):
             if not settings.SMTP_HOST or not settings.SMTP_FROM or not recipients:
                 return False
             message = EmailMessage()
-            message["Subject"] = f"[Leak Sentinel][S{finding.severity}] New exposure detected"
+            message["Subject"] = f"[万联泄漏情报监控][S{finding.severity}] 发现新的数据泄漏"
             message["From"] = settings.SMTP_FROM
             message["To"] = ", ".join(recipients)
             message.set_content(
-                f"Asset: {finding.asset.label if finding.asset else 'Unknown'}\n"
-                f"Source: {finding.source.value}\nReference: {finding.external_ref}\n"
-                f"Severity: {finding.severity}\nDetected: {finding.first_seen_at.isoformat()}Z\n"
+                f"监控资产：{finding.asset.label if finding.asset else '未知'}\n"
+                f"资产类型：{getattr(getattr(finding.asset, 'asset_type', None), 'value', '未知')}\n"
+                f"情报来源：{finding.source.value}\n事件标识：{finding.external_ref}\n"
+                f"严重级别：S{finding.severity}\n发现时间：{finding.first_seen_at.isoformat()}Z\n"
             )
             await asyncio.to_thread(self._send, message)
             return True

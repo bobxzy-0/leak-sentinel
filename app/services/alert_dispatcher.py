@@ -3,7 +3,6 @@ from app.services.alert_channels.dingtalk import DingTalkChannel
 from app.services.alert_channels.wecom import WecomChannel
 from app.services.alert_channels.email import EmailChannel
 from sqlalchemy.orm import Session
-import asyncio
 import logging
 import json
 
@@ -36,18 +35,14 @@ class AlertDispatcher:
                 AlertChannel.is_enabled
             ).all()
 
-        tasks = []
         for channel in active_channels:
             if channel.channel_type in self.channels:
                 try:
                     config = json.loads(channel.config_ciphertext) if channel.config_ciphertext else {}
-                    tasks.append(self._send_and_log(channel, finding, config))
+                    await self._send_and_log(channel, finding, config)
                 except Exception as e:
                     logger.error(f"Failed to parse config for channel {channel.id}: {e}")
 
-        if tasks:
-            await asyncio.gather(*tasks)
-            
         finding.is_new = False
         self.db.commit()
 

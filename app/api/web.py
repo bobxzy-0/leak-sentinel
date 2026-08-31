@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 from app.api.deps import get_current_user
 from sqlalchemy.orm import Session
-from app.models.models import Finding, MonitoredAsset, ProviderCallLog
+from app.models.models import AlertChannel, AlertLog, Finding, MonitoredAsset, ProviderCallLog
 from app.core.crypto import crypto_service
 from app.core.config import settings
 from app.core.database import get_db
@@ -43,6 +43,9 @@ async def view_dashboard(request: Request, user = Depends(get_current_user), db:
     recent_calls = db.query(ProviderCallLog).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id
     ).order_by(ProviderCallLog.called_at.desc()).limit(10).all()
+    recent_findings = db.query(Finding).join(MonitoredAsset).filter(
+        MonitoredAsset.owner_id == user.id
+    ).order_by(Finding.first_seen_at.desc()).limit(10).all()
     sources = _source_statuses()
     return templates.TemplateResponse(request=request, name="fragments/dashboard.html", context={
         "assets_count": assets_count,
@@ -50,6 +53,7 @@ async def view_dashboard(request: Request, user = Depends(get_current_user), db:
         "call_count": call_count,
         "error_count": error_count,
         "recent_calls": recent_calls,
+        "recent_findings": recent_findings,
         "sources": sources,
     })
 
@@ -77,10 +81,16 @@ async def view_assets_new(request: Request, user = Depends(get_current_user)):
 
 
 @router.get("/views/settings")
-async def view_settings(request: Request, user = Depends(get_current_user)):
+async def view_settings(request: Request, user = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401)
-    return templates.TemplateResponse(request=request, name="fragments/settings.html", context={"sources": _source_statuses()})
+    channels = db.query(AlertChannel).filter(AlertChannel.owner_id == user.id).order_by(AlertChannel.id.desc()).all()
+    recent_alert_logs = (db.query(AlertLog).join(AlertChannel).filter(AlertChannel.owner_id == user.id)
+                         .order_by(AlertLog.sent_at.desc()).limit(20).all())
+    return templates.TemplateResponse(request=request, name="fragments/settings.html", context={
+        "sources": _source_statuses(), "channels": channels, "recent_alert_logs": recent_alert_logs,
+        "smtp_ready": bool(settings.SMTP_HOST and settings.SMTP_FROM),
+    })
 
 def _source_statuses():
     return [

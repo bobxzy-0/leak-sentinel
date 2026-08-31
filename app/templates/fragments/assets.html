@@ -8,18 +8,18 @@
     </button>
 </div>
 
-<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-    <table class="min-w-full divide-y divide-slate-200 text-sm">
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+    <table class="w-full min-w-[1180px] table-fixed divide-y divide-slate-200 text-sm whitespace-nowrap">
         <thead class="bg-slate-50/50">
             <tr>
                 <th class="w-12 px-3 py-4" title="拖动排序"></th>
-                <th class="px-6 py-4 text-left font-semibold text-slate-600">资产名称</th>
-                <th class="px-6 py-4 text-left font-semibold text-slate-600">值 / 域名</th>
-                <th class="px-6 py-4 text-left font-semibold text-slate-600">类型</th>
+                <th class="w-40 px-4 py-4 text-left font-semibold text-slate-600">资产名称</th>
+                <th class="w-56 px-4 py-4 text-left font-semibold text-slate-600">值 / 域名</th>
+                <th class="w-28 px-4 py-4 text-left font-semibold text-slate-600">类型</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">状态</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">情报源</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">上次检查</th>
-                <th class="px-6 py-4 text-right font-semibold text-slate-600">操作</th>
+                <th class="w-64 px-4 py-4 text-right font-semibold text-slate-600">操作</th>
             </tr>
         </thead>
         <tbody id="assets-sortable" class="bg-white divide-y divide-slate-100">
@@ -27,9 +27,9 @@
                 {% for asset in assets %}
                 <tr draggable="true" data-asset-id="{{ asset.id }}" class="asset-row cursor-default">
                     <td class="px-3 py-4 text-center text-slate-400 cursor-grab select-none drag-handle" title="按住拖动排序">⋮⋮</td>
-                    <td class="px-6 py-4 text-slate-900 font-medium">{{ asset.label or '--' }}</td>
-                    <td class="px-6 py-4 text-slate-700">{{ asset.value }}</td>
-                    <td class="px-6 py-4 text-slate-500">
+                    <td class="px-4 py-4 text-slate-900 font-medium overflow-hidden"><div class="truncate" title="{{ asset.label or '--' }}">{{ asset.label or '--' }}</div><div class="truncate text-xs text-slate-400 mt-1" title="{% if asset.site_filter_mode == 'only' %}{{ (asset.watched_sites_json or [])|join(', ') }}{% else %}全网监控{% endif %}">{% if asset.site_filter_mode == 'only' %}关注 {{ (asset.watched_sites_json or [])|length }} 个网站{% else %}全网监控{% endif %}</div></td>
+                    <td class="px-4 py-4 text-slate-700 overflow-hidden"><div class="truncate" title="{{ asset.value }}">{{ asset.value }}</div></td>
+                    <td class="px-4 py-4 text-slate-500 overflow-hidden">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
                             {{ asset.asset_type.value }}
                         </span>
@@ -73,8 +73,9 @@
                             {% endfor %}
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-slate-500">{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</td>
-                    <td class="px-6 py-4 text-right space-x-3">
+                    <td class="px-4 py-4 text-slate-500 overflow-hidden"><div class="truncate" title="{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M:%S') if asset.last_checked_at else '从未' }}">{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</div></td>
+                    <td class="px-4 py-4 text-right space-x-3 overflow-hidden">
+                        {% if asset.asset_type.value not in ('password', 'api_key', 'token') %}<button onclick='editAssetScope({{ asset.id }}, {{ (asset.watched_sites_json or [])|tojson }})' class="text-blue-600 hover:text-blue-900 font-medium">关注网站</button>{% endif %}
                         <button hx-post="/api/assets/{{ asset.id }}/scan" hx-swap="none" hx-disabled-elt="this" hx-on::before-request="this.textContent='检测中…'" hx-on::after-request="this.textContent='手动检测'; htmx.ajax('GET', '/views/assets', {target: '#main-content'})" class="text-emerald-600 hover:text-emerald-900 font-medium transition-colors">手动检测</button>
                         {% if asset.asset_type.value == 'domain' and not asset.is_domain_verified %}
                             <button hx-put="/api/assets/{{ asset.id }}/verify" hx-swap="none" onclick="setTimeout(()=>htmx.ajax('GET', '/views/assets', {target: '#main-content'}), 500)" class="text-blue-600 hover:text-blue-900 font-medium transition-colors">完成验证</button>
@@ -130,4 +131,11 @@
         if (!response.ok) htmx.ajax('GET', '/views/assets', {target: '#main-content'});
     });
 })();
+async function editAssetScope(id, currentSites) {
+    const value = prompt('每行一个网站。留空将切换为全网监控；支持 example.com 和 *.example.com', currentSites.join('\n'));
+    if (value === null) return;
+    const sites = value.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
+    const response = await fetch(`/api/assets/${id}/scope`, {method:'PUT', headers:{'Authorization':'Bearer '+localStorage.getItem('access_token'),'Content-Type':'application/json'}, body:JSON.stringify({site_filter_mode: sites.length ? 'only' : 'all', watched_sites: sites})});
+    if (response.ok) htmx.ajax('GET', '/views/assets', {target:'#main-content'}); else alert((await response.json()).detail || '保存失败');
+}
 </script>

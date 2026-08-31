@@ -45,6 +45,12 @@
                                     <p class="mt-1">添加域名后，系统状态将变为“待验证”。您必须前往 <a href="https://haveibeenpwned.com/DomainSearch" target="_blank" class="underline text-blue-600 hover:text-blue-800">HIBP 官网</a> 完成 DNS TXT 记录验证，然后在此系统点击“完成验证”。系统才会在后续任务中扫描该域名。</p>
                                 </div>
                             </div>
+                            <div id="site-scope" class="space-y-3 rounded-xl border border-slate-200 p-4">
+                                <label class="block text-sm font-medium text-slate-700">监控范围</label>
+                                <select name="site_filter_mode" id="site-filter-mode" onchange="toggleWatchedSites()" class="w-full px-3 py-2 border rounded-xl"><option value="all">全网监控</option><option value="only">仅关注指定网站</option></select>
+                                <textarea name="watched_sites_text" id="watched-sites" rows="3" placeholder="每行一个，例如：\nexample.com\n*.example.com" class="hidden w-full px-3 py-2 border rounded-xl text-sm"></textarea>
+                                <p id="username-site-tip" class="hidden text-xs text-amber-700">用户名重名率较高，建议选择“仅关注指定网站”。</p>
+                            </div>
                             
                             <div id="modal-error" class="text-rose-600 text-sm hidden"></div>
                         </form>
@@ -76,12 +82,19 @@
         const sensitive = ['password', 'api_key', 'token'].includes(val);
         input.type = sensitive ? 'password' : 'text';
         input.placeholder = sensitive ? '输入敏感值（保存后仅显示为掩码）' : 'example.com 或 user@example.com';
+        document.getElementById('site-scope').classList.toggle('hidden', sensitive);
+        document.getElementById('username-site-tip').classList.toggle('hidden', val !== 'username');
+        if (sensitive) document.getElementById('site-filter-mode').value = 'all';
+        toggleWatchedSites();
     }
+    function toggleWatchedSites(){document.getElementById('watched-sites').classList.toggle('hidden', document.getElementById('site-filter-mode').value !== 'only')}
     
     function submitAddAsset() {
         const form = document.getElementById('add-asset-form');
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
+        data.watched_sites = (data.watched_sites_text || '').split(/[,\n]/).map(x => x.trim()).filter(Boolean);
+        delete data.watched_sites_text;
         
         fetch('/api/assets/', {
             method: 'POST',
@@ -102,4 +115,5 @@
             }
         });
     }
+    updateAssetForm();
 </script>

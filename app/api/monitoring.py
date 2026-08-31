@@ -1,6 +1,9 @@
 import json
 from typing import Literal
 
+from datetime import datetime
+from types import SimpleNamespace
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, HttpUrl
 from sqlalchemy.orm import Session
@@ -8,9 +11,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.crypto import crypto_service
 from app.core.database import get_db
-from app.models.models import AlertChannel, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, ProviderCallLog, User
+from app.models.models import AlertChannel, AlertLog, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, ProviderCallLog, User
 from app.services.providers import HudsonRockProvider
 from app.services.scanner import scan_asset
+from app.services.alert_channels.dingtalk import DingTalkChannel
+from app.services.alert_channels.email import EmailChannel
+from app.services.alert_channels.wecom import WecomChannel
 
 router = APIRouter()
 
@@ -21,6 +27,10 @@ class ChannelCreate(BaseModel):
     webhook_url: HttpUrl | None = None
     secret: str | None = None
     recipients: list[EmailStr] = []
+
+
+class ChannelUpdate(BaseModel):
+    is_enabled: bool
 
 
 class FreeSearchRequest(BaseModel):
@@ -108,3 +118,53 @@ def list_channels(db: Session = Depends(get_db), user: User = Depends(get_curren
     if not user:
         raise HTTPException(401, "Authentication required")
     return db.query(AlertChannel).filter_by(owner_id=user.id).all()
+
+
+@router.put("/channels/{channel_id}")
+def update_channel(channel_id: int, body: ChannelUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    channel = db.query(AlertChannel).filter_by(id=channel_id, owner_id=user.id).first()
+    if not channel:
+        raise HTTPException(404, "Alert channel not found")
+    channel.is_enabled = body.is_enabled
+    db.commit()
+    return {"id": channel.id, "is_enabled": channel.is_enabled}
+
+
+@router.delete("/channels/{channel_id}", status_code=204)
+def delete_channel(channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    channel = db.query(AlertChannel).filter_by(id=channel_id, owner_id=user.id).first()
+    if not channel:
+        raise HTTPException(404, "Alert channel not found")
+    db.delete(channel)
+    db.commit()
+
+
+@router.post("/channels/{channel_id}/test")
+async def test_channel(channel_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    channel = db.query(AlertChannel).filter_by(id=channel_id, owner_id=user.id).first()
+    if not channel:
+        raise HTTPException(404, "Alert channel not found")
+    handlers = {
+        ChannelTypeEnum.dingtalk: DingTalkChannel(),
+        ChannelTypeEnum.wecom: WecomChannel(),
+        ChannelTypeEnum.email: EmailChannel(),
+    }
+    config = json.loads(channel.config_ciphertext or "{}")
+    test_finding = SimpleNamespace(
+        severity=1,
+        asset=SimpleNamespace(label="告警通道测试", asset_type=AssetTypeEnum.domain),
+        source=SimpleNamespace(value="system_test"),
+        external_ref="test-alert",
+        first_seen_at=datetime.utcnow(),
+    )
+    if not await handlers[channel.channel_type].send(test_finding, config):
+        raise HTTPException(502, "测试告警发送失败，请检查配置和服务日志")
+    return {"success": True}
+
+
+@router.get("/alert-logs")
+def list_alert_logs(limit: int = 50, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    limit = min(max(limit, 1), 200)
+    items = (db.query(AlertLog).join(AlertChannel).filter(AlertChannel.owner_id == user.id)
+             .order_by(AlertLog.sent_at.desc()).limit(limit).all())
+    return {"items": items}

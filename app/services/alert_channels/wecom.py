@@ -18,7 +18,7 @@ class WecomChannel(AlertChannelBase):
         payload = {
             "msgtype": "markdown",
             "markdown": {
-                "content": f"## ⚠️ Data Breach Alert\n> **Asset**: <font color=\"warning\">{finding.asset.label if finding.asset else 'Global'}</font>\n> **Source**: {finding.external_ref}\n> **Severity**: {finding.severity}\n> **Time**: {finding.first_seen_at}"
+                "content": f"## ⚠️ 数据泄漏告警\n> **监控资产**：<font color=\"warning\">{finding.asset.label if finding.asset else '全局'}</font>\n> **情报来源**：{finding.source.value}\n> **事件标识**：{finding.external_ref}\n> **严重级别**：S{finding.severity}\n> **发现时间**：{finding.first_seen_at}"
             }
         }
         

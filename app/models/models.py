@@ -57,6 +57,8 @@ class MonitoredAsset(Base):
     last_checked_at = Column(DateTime, nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     provider_status_json = Column(JSON, nullable=True)
+    site_filter_mode = Column(String, nullable=False, default="all")
+    watched_sites_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     owner = relationship("User")
@@ -107,6 +109,8 @@ class ProviderCallLog(Base):
     trigger = Column(String, nullable=False)  # manual / automatic
     status = Column(String, nullable=False)  # clean / found / error / disabled
     match_count = Column(Integer, nullable=False, default=0)
+    returned_count = Column(Integer, nullable=False, default=0)
+    filtered_count = Column(Integer, nullable=False, default=0)
     duration_ms = Column(Integer, nullable=False, default=0)
     error_message = Column(Text, nullable=True)
     called_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

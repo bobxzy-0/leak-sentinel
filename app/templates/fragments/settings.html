@@ -3,6 +3,24 @@
     <p class="text-slate-500 mt-2 text-sm">第三方泄漏情报数据源与运行状态</p>
 </div>
 
+<div class="mt-10 max-w-5xl bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+  <div class="flex items-center justify-between"><div><h2 class="text-xl font-bold">告警通道</h2><p class="text-sm text-slate-500 mt-1">发现新的有效泄漏时发送；重复结果不会重复告警。</p></div></div>
+  <form id="channel-form" class="mt-6 grid md:grid-cols-2 gap-4">
+    <input name="name" required placeholder="通道名称，例如：安全告警群" class="px-3 py-2 border rounded-xl">
+    <select name="channel_type" id="channel-type" onchange="toggleChannelFields()" class="px-3 py-2 border rounded-xl"><option value="dingtalk">钉钉机器人</option><option value="wecom">企业微信机器人</option><option value="email">SMTP 邮件</option></select>
+    <input id="webhook-url" name="webhook_url" placeholder="Webhook URL" class="md:col-span-2 px-3 py-2 border rounded-xl">
+    <input id="secret" name="secret" placeholder="钉钉加签密钥（可选）" class="md:col-span-2 px-3 py-2 border rounded-xl">
+    <textarea id="recipients" name="recipients_text" placeholder="收件邮箱，每行一个" class="hidden md:col-span-2 px-3 py-2 border rounded-xl"></textarea>
+    <div id="smtp-note" class="hidden md:col-span-2 text-xs {% if smtp_ready %}text-emerald-600{% else %}text-amber-600{% endif %}">{{ 'SMTP 环境配置已就绪' if smtp_ready else '请先在 leak-sentinel.env 配置 SMTP_HOST 和 SMTP_FROM' }}</div>
+    <div class="md:col-span-2"><button type="button" onclick="createChannel()" class="bg-blue-600 text-white px-5 py-2 rounded-xl">添加告警通道</button><span id="channel-error" class="ml-3 text-sm text-rose-600"></span></div>
+  </form>
+  <div class="mt-7 divide-y divide-slate-100">
+  {% for channel in channels %}<div class="py-4 flex flex-wrap items-center gap-3"><div class="flex-1"><div class="font-semibold">{{ channel.name }}</div><div class="text-xs text-slate-500">{{ {'dingtalk':'钉钉机器人','wecom':'企业微信机器人','email':'邮件'}.get(channel.channel_type.value, channel.channel_type.value) }} · {{ '已启用' if channel.is_enabled else '已停用' }}</div></div><button onclick="testChannel({{ channel.id }}, this)" class="text-blue-600 text-sm">测试发送</button><button onclick="toggleChannel({{ channel.id }}, {{ 'false' if channel.is_enabled else 'true' }})" class="text-amber-600 text-sm">{{ '停用' if channel.is_enabled else '启用' }}</button><button onclick="deleteChannel({{ channel.id }})" class="text-rose-600 text-sm">删除</button></div>{% else %}<div class="py-6 text-sm text-slate-400">尚未配置告警通道。</div>{% endfor %}
+  </div>
+</div>
+
+<div class="mt-8 max-w-5xl bg-white rounded-2xl border border-slate-200 shadow-sm p-6"><h2 class="text-lg font-bold">最近告警发送日志</h2><div class="mt-4 divide-y divide-slate-100 text-sm">{% for log in recent_alert_logs %}<div class="py-3 flex justify-between gap-4"><span>{{ log.channel.name }} · {{ log.finding.external_ref }}</span><span class="{% if log.status == 'success' %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ '发送成功' if log.status == 'success' else '发送失败' }} · {{ log.sent_at.strftime('%Y-%m-%d %H:%M') }}</span></div>{% else %}<div class="text-slate-400">暂无告警日志。</div>{% endfor %}</div></div>
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
     {% for source in sources %}
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
@@ -24,6 +42,16 @@
     </div>
     {% endfor %}
 </div>
+
+<script>
+function authHeaders(){return {'Authorization':'Bearer '+localStorage.getItem('access_token'),'Content-Type':'application/json'}}
+function toggleChannelFields(){const email=document.getElementById('channel-type').value==='email';document.getElementById('webhook-url').classList.toggle('hidden',email);document.getElementById('secret').classList.toggle('hidden',email);document.getElementById('recipients').classList.toggle('hidden',!email);document.getElementById('smtp-note').classList.toggle('hidden',!email)}
+async function createChannel(){const f=new FormData(document.getElementById('channel-form'));const d=Object.fromEntries(f.entries());d.recipients=(d.recipients_text||'').split(/[,\n]/).map(x=>x.trim()).filter(Boolean);delete d.recipients_text;if(d.channel_type==='email'){delete d.webhook_url;delete d.secret}else delete d.recipients;const r=await fetch('/api/channels',{method:'POST',headers:authHeaders(),body:JSON.stringify(d)});if(r.ok) htmx.ajax('GET','/views/settings',{target:'#main-content'});else document.getElementById('channel-error').textContent=(await r.json()).detail||'保存失败'}
+async function testChannel(id,button){button.textContent='发送中…';const r=await fetch(`/api/channels/${id}/test`,{method:'POST',headers:authHeaders()});button.textContent=r.ok?'发送成功':'发送失败';}
+async function toggleChannel(id,enabled){await fetch(`/api/channels/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify({is_enabled:enabled})});htmx.ajax('GET','/views/settings',{target:'#main-content'})}
+async function deleteChannel(id){if(!confirm('确认删除此告警通道？'))return;await fetch(`/api/channels/${id}`,{method:'DELETE',headers:authHeaders()});htmx.ajax('GET','/views/settings',{target:'#main-content'})}
+toggleChannelFields();
+</script>
 
 <div class="mt-8 max-w-5xl bg-blue-50 border border-blue-200 rounded-2xl p-5 text-sm text-blue-800">
     数据源通过 <code>/etc/leak-sentinel/leak-sentinel.env</code> 配置；修改后执行 <code>systemctl restart leak-sentinel</code>。

@@ -26,6 +26,8 @@ class ProviderOutcome:
     match_count: int = 0
     error: str | None = None
     duration_ms: int = 0
+    returned_count: int = 0
+    filtered_count: int = 0
 
 
 class HudsonRockProvider:
@@ -162,6 +164,9 @@ class ProviderRegistry:
                 count = provider._total(response[0].data)
             if provider.name == "pwned_passwords" and response:
                 count = response[0].data.get("count", 0)
-            outcomes.append(ProviderOutcome(provider.name, "found" if count else "clean", response, count, duration_ms=duration_ms))
+            outcomes.append(ProviderOutcome(
+                provider.name, "found" if count else "clean", response, count,
+                duration_ms=duration_ms, returned_count=count,
+            ))
         outcomes.extend(ProviderOutcome(provider.name, "disabled", []) for provider in disabled)
         return outcomes
