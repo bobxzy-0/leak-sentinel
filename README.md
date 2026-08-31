@@ -6,10 +6,12 @@
 
 ## 功能
 
-- 域名、邮箱、用户名三类监控对象
+- 域名、邮箱、用户名、密码、API 密钥、令牌六类监控对象
 - Hudson Rock Community OSINT：域名、邮箱、用户名的 infostealer 暴露统计
 - Have I Been Pwned v3：邮箱泄漏事件（需要 HIBP API Key）
 - 定时或立即扫描；SHA-256 内容指纹去重，只对新增结果告警
+- 资产拖动排序；手动检测后 24 小时内自动任务跳过，保证每天最多自动检查一次
+- 情报源独立状态图标、命中数量和第三方接口调用日志
 - 钉钉机器人（支持加签）、企业微信机器人、SMTP 邮件
 - Fernet 加密敏感配置和监控值
 - FastAPI、SQLite/PostgreSQL、Python 虚拟环境和 systemd
@@ -93,6 +95,9 @@ curl -X POST http://localhost:8000/api/channels \
 |---|---:|---:|---:|---|
 | Hudson Rock Community OSINT | ✓ | ✓ | ✓ | 无需 Key（受服务条款和限流约束） |
 | HIBP API v3 | — | ✓ | — | `HIBP_API_KEY` |
+| HIBP Pwned Passwords | — | — | — | 密码 k-anonymity 查询，无需 API Key |
+
+API 密钥和令牌会加密保存并在界面脱敏；系统不会把完整敏感值发送给不适用的第三方数据源。
 
 provider registry 可继续接入 LeakCheck 等合规数据源。本服务不会规避鉴权、限流或授权要求。
 
