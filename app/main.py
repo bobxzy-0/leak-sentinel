@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     yield
     shutdown_scheduler()
 
-app = FastAPI(title="Leak Sentinel", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title=settings.APP_NAME, version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
