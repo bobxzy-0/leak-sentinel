@@ -39,6 +39,7 @@ class AssetResponse(BaseModel):
     status: AssetStatusEnum
     is_domain_verified: bool
     last_checked_at: Optional[datetime]
+    sort_order: int
     created_at: datetime
     
     model_config = {"from_attributes": True}
