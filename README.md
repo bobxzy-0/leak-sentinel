@@ -9,7 +9,6 @@
 - 域名、邮箱、用户名三类监控对象
 - Hudson Rock Community OSINT：域名、邮箱、用户名的 infostealer 暴露统计
 - Have I Been Pwned v3：邮箱泄漏事件（需要 HIBP API Key）
-- Mozilla Monitor：经 Firefox Account 授权读取该账号已监控邮箱的泄漏状态
 - 定时或立即扫描；SHA-256 内容指纹去重，只对新增结果告警
 - 钉钉机器人（支持加签）、企业微信机器人、SMTP 邮件
 - Fernet 加密敏感配置和监控值
@@ -63,9 +62,6 @@ curl -X POST http://localhost:8000/api/channels \
 |---|---:|---:|---:|---|
 | Hudson Rock Community OSINT | ✓ | ✓ | ✓ | 无需 Key（受服务条款和限流约束） |
 | HIBP API v3 | — | ✓ | — | `HIBP_API_KEY` |
-| Mozilla Monitor | — | ✓ | — | Firefox Account Bearer Token；仅限账号已监控邮箱 |
-
-Mozilla Monitor 的泄漏数据来自 HIBP，因此它是补充的用户状态与处置视图，而不是独立泄漏数据库。其外部 API 要求 Firefox Account JWT，不能用于查询任意第三方邮箱。配置 `MOZILLA_MONITOR_ENABLED=true` 和 `MOZILLA_MONITOR_TOKEN` 后启用。
 
 provider registry 可继续接入 LeakCheck 等合规数据源。本服务不会规避鉴权、限流或授权要求。
 
