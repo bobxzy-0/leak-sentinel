@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     LEAKCHECK_PRO_URL: str = "https://leakcheck.io/api/v2"
     WHITEINTEL_API_KEY: Optional[str] = None
     WHITEINTEL_BASE_URL: str = "https://api.whiteintel.io"
+    INTELX_API_KEY: Optional[str] = None
+    INTELX_BASE_URL: str = "https://2.intelx.io"
     SCAN_INTERVAL_MINUTES: int = 60
     HTTP_TIMEOUT_SECONDS: int = 20
     BREACH_CATALOG_SYNC_CRON: str = "0 0 * * *"

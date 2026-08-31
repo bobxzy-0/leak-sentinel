@@ -240,12 +240,54 @@ class WhiteIntelProvider:
         ) for index, item in enumerate(payload.get("results") or [])]
 
 
+class IntelligenceXProvider:
+    """Intelligence X leak/paste metadata search; document contents are not downloaded."""
+
+    name = "intelligence_x"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        return bool(settings.INTELX_API_KEY) and asset_type in (AssetTypeEnum.domain, AssetTypeEnum.email)
+
+    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
+        if not self.is_enabled_for(asset_type):
+            return []
+        headers = {"X-Key": settings.INTELX_API_KEY, "user-agent": "leak-sentinel/1.0"}
+        request = {
+            "term": value, "buckets": ["leaks.public", "pastes"], "lookuplevel": 0,
+            "maxresults": 100, "timeout": 5, "datefrom": "", "dateto": "",
+            "sort": 4, "media": 0, "terminate": [],
+        }
+        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
+            started = await client.post(f"{settings.INTELX_BASE_URL}/intelligent/search", json=request, headers=headers)
+            started.raise_for_status()
+            search_id = started.json().get("id")
+            if not search_id:
+                return []
+            records = []
+            for _ in range(5):
+                await asyncio.sleep(1)
+                response = await client.get(
+                    f"{settings.INTELX_BASE_URL}/intelligent/search/result",
+                    params={"id": search_id, "limit": 100}, headers=headers,
+                )
+                response.raise_for_status()
+                page = response.json()
+                records.extend(page.get("records") or [])
+                if page.get("status") in (0, 1, 2):
+                    break
+        return [ProviderResult(
+            "intelligence_x", f"intelx:{item.get('storageid') or item.get('systemid') or index + 1}",
+            3, item,
+        ) for index, item in enumerate(records)]
+
+
 class ProviderRegistry:
     def __init__(self):
         self.providers = [
             HudsonRockProvider(), HIBPProvider(), PwnedPasswordsProvider(),
             XposedOrNotProvider(), LeakCheckProvider(),
             WhiteIntelProvider(),
+            IntelligenceXProvider(),
         ]
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:

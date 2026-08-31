@@ -1,6 +1,7 @@
 from app.models.models import AssetTypeEnum
 from app.services.providers import (
-    HIBPProvider, HudsonRockProvider, LeakCheckProvider, WhiteIntelProvider, XposedOrNotProvider,
+    HIBPProvider, HudsonRockProvider, IntelligenceXProvider, LeakCheckProvider,
+    WhiteIntelProvider, XposedOrNotProvider,
 )
 
 
@@ -24,3 +25,4 @@ def test_free_providers_support_expected_asset_types():
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.username)
     assert not LeakCheckProvider().is_enabled_for(AssetTypeEnum.password)
     assert not WhiteIntelProvider().is_enabled_for(AssetTypeEnum.domain)
+    assert not IntelligenceXProvider().is_enabled_for(AssetTypeEnum.email)

@@ -74,6 +74,7 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
     return templates.TemplateResponse(request=request, name="fragments/assets.html", context={
         "assets": assets, "leakcheck_pro": bool(settings.LEAKCHECK_API_KEY),
         "whiteintel_enabled": bool(settings.WHITEINTEL_API_KEY),
+        "intelx_enabled": bool(settings.INTELX_API_KEY),
     })
 
 @router.get("/views/assets/new")
@@ -134,6 +135,12 @@ def _source_statuses():
             "description": "企业域名 Infostealer、Combolist、登录网站和主机上下文",
             "enabled": bool(settings.WHITEINTEL_API_KEY),
             "credential": "Enterprise API Key" if settings.WHITEINTEL_API_KEY else "待配置 API Key",
+        },
+        {
+            "key": "intelligence_x", "name": "Intelligence X",
+            "description": "泄漏、Paste 与暗网索引元数据（不下载泄漏文件）",
+            "enabled": bool(settings.INTELX_API_KEY),
+            "credential": "API License" if settings.INTELX_API_KEY else "待配置 API Key",
         },
     ]
 

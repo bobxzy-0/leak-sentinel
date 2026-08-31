@@ -29,6 +29,7 @@ class FindingSourceEnum(str, enum.Enum):
     xposedornot = "xposedornot"
     leakcheck = "leakcheck"
     whiteintel = "whiteintel"
+    intelligence_x = "intelligence_x"
 
 class ChannelTypeEnum(str, enum.Enum):
     dingtalk = "dingtalk"

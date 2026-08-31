@@ -95,6 +95,7 @@ def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, p
         "pwned_passwords": ["pwned_password"],
         "xposedornot": ["xposedornot"], "leakcheck": ["leakcheck"],
         "whiteintel": ["whiteintel"],
+        "intelligence_x": ["intelligence_x"],
     }
     if provider in source_groups:
         query = query.filter(Finding.source.in_(source_groups[provider]))

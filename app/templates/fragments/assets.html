@@ -51,8 +51,8 @@
                     <td class="px-6 py-4">
                         {% set provider_states = asset.provider_status_json or {} %}
                         <div class="flex items-center gap-2">
-                            {% if asset.asset_type.value == 'domain' %}{% set visible_providers = [('hudson_rock', 'HR'), ('hibp', 'HIBP'), ('xposedornot', 'XON')] + ([('leakcheck', 'LC')] if leakcheck_pro else []) + ([('whiteintel', 'WI')] if whiteintel_enabled else []) %}
-                            {% elif asset.asset_type.value == 'email' %}{% set visible_providers = [('hudson_rock', 'HR'), ('hibp', 'HIBP'), ('xposedornot', 'XON'), ('leakcheck', 'LC')] %}
+                            {% if asset.asset_type.value == 'domain' %}{% set visible_providers = [('hudson_rock', 'HR'), ('hibp', 'HIBP'), ('xposedornot', 'XON')] + ([('leakcheck', 'LC')] if leakcheck_pro else []) + ([('whiteintel', 'WI')] if whiteintel_enabled else []) + ([('intelligence_x', 'IX')] if intelx_enabled else []) %}
+                            {% elif asset.asset_type.value == 'email' %}{% set visible_providers = [('hudson_rock', 'HR'), ('hibp', 'HIBP'), ('xposedornot', 'XON'), ('leakcheck', 'LC')] + ([('intelligence_x', 'IX')] if intelx_enabled else []) %}
                             {% elif asset.asset_type.value == 'username' %}{% set visible_providers = [('hudson_rock', 'HR'), ('leakcheck', 'LC')] %}
                             {% elif asset.asset_type.value == 'password' %}{% set visible_providers = [('pwned_passwords', 'PWP')] %}
                             {% else %}{% set visible_providers = [] %}{% endif %}
