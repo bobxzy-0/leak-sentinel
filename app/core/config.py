@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Leak Sentinel"
+    APP_NAME: str = "万联泄漏情报监控"
     DATABASE_URL: str = "sqlite:///./leak_sentinel.db"
     MASTER_KEY: str
     JWT_SECRET_KEY: str
