@@ -1,5 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
+from datetime import datetime, timedelta
+from sqlalchemy import or_
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.models import MonitoredAsset, AssetStatusEnum
@@ -11,10 +13,14 @@ scheduler = AsyncIOScheduler()
 async def scan_assets_job():
     db = SessionLocal()
     try:
-        assets = db.query(MonitoredAsset).filter(MonitoredAsset.status == AssetStatusEnum.active).all()
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        assets = db.query(MonitoredAsset).filter(
+            MonitoredAsset.status == AssetStatusEnum.active,
+            or_(MonitoredAsset.last_checked_at.is_(None), MonitoredAsset.last_checked_at <= cutoff),
+        ).all()
         for asset in assets:
             try:
-                await scan_asset(db, asset)
+                await scan_asset(db, asset, trigger="automatic")
             except Exception:
                 logger.exception("Scan failed for asset %s", asset.id)
                 db.rollback()
