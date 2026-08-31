@@ -1,10 +1,10 @@
-import os
-
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
+import os
+from datetime import datetime, timedelta
 from app.api.deps import get_current_user
 from sqlalchemy.orm import Session
-from app.models.models import MonitoredAsset
+from app.models.models import Finding, MonitoredAsset, ProviderCallLog
 from app.core.crypto import crypto_service
 from app.core.config import settings
 from app.core.database import get_db
@@ -31,17 +31,40 @@ async def view_dashboard(request: Request, user = Depends(get_current_user), db:
     if not user:
         raise HTTPException(status_code=401)
     assets_count = db.query(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id).count()
-    return templates.TemplateResponse(request=request, name="fragments/dashboard.html", context={"assets_count": assets_count, "new_findings_count": 0})
+    since = datetime.utcnow() - timedelta(days=7)
+    new_findings_count = db.query(Finding).join(MonitoredAsset).filter(
+        MonitoredAsset.owner_id == user.id, Finding.first_seen_at >= since
+    ).count()
+    calls = db.query(ProviderCallLog).join(MonitoredAsset).filter(
+        MonitoredAsset.owner_id == user.id, ProviderCallLog.called_at >= since
+    )
+    call_count = calls.count()
+    error_count = calls.filter(ProviderCallLog.status == "error").count()
+    recent_calls = db.query(ProviderCallLog).join(MonitoredAsset).filter(
+        MonitoredAsset.owner_id == user.id
+    ).order_by(ProviderCallLog.called_at.desc()).limit(10).all()
+    sources = _source_statuses()
+    return templates.TemplateResponse(request=request, name="fragments/dashboard.html", context={
+        "assets_count": assets_count,
+        "new_findings_count": new_findings_count,
+        "call_count": call_count,
+        "error_count": error_count,
+        "recent_calls": recent_calls,
+        "sources": sources,
+    })
 
     
 @router.get("/views/assets")
 async def view_assets(request: Request, user = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401)
-    assets = db.query(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id).all()
+    assets = db.query(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id).order_by(
+        MonitoredAsset.sort_order.asc(), MonitoredAsset.id.asc()
+    ).all()
     for asset in assets:
         if asset.value_ciphertext:
-            asset.value = crypto_service.decrypt(asset.value_ciphertext)
+            value = crypto_service.decrypt(asset.value_ciphertext)
+            asset.value = "••••••••" if asset.asset_type.value in ("password", "api_key", "token") else value
         else:
             asset.value = ""
     return templates.TemplateResponse(request=request, name="fragments/assets.html", context={"assets": assets})
@@ -57,7 +80,32 @@ async def view_assets_new(request: Request, user = Depends(get_current_user)):
 async def view_settings(request: Request, user = Depends(get_current_user)):
     if not user:
         raise HTTPException(status_code=401)
-    return templates.TemplateResponse(request=request, name="fragments/settings.html", context={})
+    return templates.TemplateResponse(request=request, name="fragments/settings.html", context={"sources": _source_statuses()})
+
+def _source_statuses():
+    return [
+        {
+            "key": "hudson_rock",
+            "name": "Hudson Rock",
+            "description": "域名、邮箱和用户名 Infostealer 泄漏情报",
+            "enabled": settings.HUDSON_ROCK_ENABLED,
+            "credential": "Community OSINT",
+        },
+        {
+            "key": "hibp",
+            "name": "Have I Been Pwned",
+            "description": "邮箱数据泄漏事件",
+            "enabled": bool(settings.HIBP_API_KEY),
+            "credential": "API Key" if settings.HIBP_API_KEY else "未配置 API Key",
+        },
+        {
+            "key": "pwned_passwords",
+            "name": "HIBP Pwned Passwords",
+            "description": "通过 k-anonymity 检查密码是否出现在泄漏库",
+            "enabled": True,
+            "credential": "免费，无需 API Key",
+        },
+    ]
 
 @router.get("/views/nav_user")
 async def view_nav_user(request: Request, user = Depends(get_current_user)):
