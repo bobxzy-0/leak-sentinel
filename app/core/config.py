@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     HIBP_RATE_LIMIT_RPM: int = 10
     HUDSON_ROCK_ENABLED: bool = True
     HUDSON_ROCK_BASE_URL: str = "https://cavalier.hudsonrock.com/api/json/v2/osint-tools"
+    MOZILLA_MONITOR_ENABLED: bool = False
+    MOZILLA_MONITOR_API_URL: str = "https://monitor.mozilla.org/api/v1"
+    MOZILLA_MONITOR_TOKEN: Optional[str] = None
     SCAN_INTERVAL_MINUTES: int = 60
     HTTP_TIMEOUT_SECONDS: int = 20
     BREACH_CATALOG_SYNC_CRON: str = "0 0 * * *"
