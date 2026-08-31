@@ -3,7 +3,7 @@
     <p class="text-slate-500 mt-2 text-sm">您的全网数据泄露监控摘要</p>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
     <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
         <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">监控资产数</h3>
         <p class="text-4xl font-bold mt-4 text-slate-900">{{ assets_count }}</p>
@@ -13,16 +13,42 @@
         <p class="text-4xl font-bold mt-4 text-rose-600">{{ new_findings_count }}</p>
     </div>
     <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
-        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">告警触达率</h3>
-        <p class="text-4xl font-bold mt-4 text-emerald-600">100<span class="text-2xl text-emerald-500">%</span></p>
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">7日接口调用</h3>
+        <p class="text-4xl font-bold mt-4 text-blue-600">{{ call_count }}</p>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
+        <h3 class="text-slate-500 text-xs font-semibold uppercase tracking-widest">7日调用失败</h3>
+        <p class="text-4xl font-bold mt-4 {% if error_count %}text-amber-600{% else %}text-emerald-600{% endif %}">{{ error_count }}</p>
+    </div>
+</div>
+
+<div class="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+    <h3 class="text-lg font-bold text-slate-900 mb-4">已对接情报库</h3>
+    <div class="flex flex-wrap gap-3">
+        {% for source in sources %}
+        <div class="flex items-center gap-2 px-4 py-2 rounded-xl border {% if source.enabled %}bg-emerald-50 border-emerald-200 text-emerald-700{% else %}bg-slate-50 border-slate-200 text-slate-500{% endif %}">
+            <span class="w-2 h-2 rounded-full {% if source.enabled %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+            <span class="text-sm font-semibold">{{ source.name }}</span>
+            <span class="text-xs">{{ '运行中' if source.enabled else '未启用' }}</span>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
 <div class="mt-10 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="p-6 border-b border-slate-100">
-        <h3 class="text-lg font-bold text-slate-900">最近告警记录</h3>
+        <h3 class="text-lg font-bold text-slate-900">最近第三方调用</h3>
     </div>
-    <div class="p-8 text-center">
-        <p class="text-slate-400 text-sm">暂无近期告警数据，您的资产目前很安全。</p>
+    {% if recent_calls %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500"><tr><th class="px-6 py-3 text-left">时间</th><th class="px-6 py-3 text-left">情报源</th><th class="px-6 py-3 text-left">资产</th><th class="px-6 py-3 text-left">触发</th><th class="px-6 py-3 text-left">结果</th><th class="px-6 py-3 text-right">耗时</th></tr></thead>
+            <tbody class="divide-y divide-slate-100">
+            {% for call in recent_calls %}
+                <tr><td class="px-6 py-3 text-slate-500">{{ call.called_at.strftime('%m-%d %H:%M:%S') }}</td><td class="px-6 py-3 font-medium">{% if call.provider == 'hudson_rock' %}Hudson Rock{% elif call.provider == 'pwned_passwords' %}Pwned Passwords{% else %}HIBP{% endif %}</td><td class="px-6 py-3">{{ call.asset.label or call.asset_id }}</td><td class="px-6 py-3">{{ '手动' if call.trigger == 'manual' else '自动' }}</td><td class="px-6 py-3"><span class="px-2 py-1 rounded-full text-xs {% if call.status == 'found' %}bg-rose-100 text-rose-700{% elif call.status == 'clean' %}bg-emerald-100 text-emerald-700{% elif call.status == 'error' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ call.status }}{% if call.match_count %} · {{ call.match_count }}{% endif %}</span></td><td class="px-6 py-3 text-right text-slate-500">{{ call.duration_ms }} ms</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}<div class="p-8 text-center text-slate-400 text-sm">暂无第三方接口调用记录。</div>{% endif %}
 </div>
