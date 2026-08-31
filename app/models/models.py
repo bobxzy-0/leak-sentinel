@@ -14,6 +14,7 @@ class AssetTypeEnum(str, enum.Enum):
     username = "username"
     password = "password"
     api_key = "api_key"
+    token = "token"
 
 class AssetStatusEnum(str, enum.Enum):
     active = "active"
@@ -54,6 +55,8 @@ class MonitoredAsset(Base):
     status = Column(Enum(AssetStatusEnum), default=AssetStatusEnum.active)
     is_domain_verified = Column(Boolean, default=False)
     last_checked_at = Column(DateTime, nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    provider_status_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     owner = relationship("User")
@@ -94,6 +97,21 @@ class AlertLog(Base):
     
     finding = relationship("Finding")
     channel = relationship("AlertChannel")
+
+class ProviderCallLog(Base):
+    __tablename__ = "provider_call_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("monitored_assets.id"), nullable=False, index=True)
+    provider = Column(String, nullable=False, index=True)
+    target_type = Column(String, nullable=False)
+    trigger = Column(String, nullable=False)  # manual / automatic
+    status = Column(String, nullable=False)  # clean / found / error / disabled
+    match_count = Column(Integer, nullable=False, default=0)
+    duration_ms = Column(Integer, nullable=False, default=0)
+    error_message = Column(Text, nullable=True)
+    called_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    asset = relationship("MonitoredAsset")
 
 class HibpConfig(Base):
     __tablename__ = "hibp_config"
