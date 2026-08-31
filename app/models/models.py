@@ -25,7 +25,6 @@ class FindingSourceEnum(str, enum.Enum):
     hibp_stealer_log = "hibp_stealer_log"
     pwned_password = "pwned_password"
     hudson_rock = "hudson_rock"
-    mozilla_monitor = "mozilla_monitor"
 
 class ChannelTypeEnum(str, enum.Enum):
     dingtalk = "dingtalk"
