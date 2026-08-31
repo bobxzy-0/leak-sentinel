@@ -36,9 +36,16 @@ systemctl status leak-sentinel
 journalctl -u leak-sentinel -f
 ```
 
-服务默认只监听 `127.0.0.1:8000`。健康检查：`curl http://127.0.0.1:8000/health`，API 文档：`http://127.0.0.1:8000/docs`。
+LXC 模板默认监听 `0.0.0.0:8000`。可在 `/etc/leak-sentinel/leak-sentinel.env` 自定义：
 
-需要从外部访问时，安装 Nginx 并参考 `deploy/nginx.conf.example` 配置反向代理，然后使用 Certbot 或现有网关配置 HTTPS。不要直接将 Uvicorn 的 8000 端口暴露到公网。
+```env
+APP_HOST=0.0.0.0
+APP_PORT=8080
+```
+
+修改后执行 `systemctl restart leak-sentinel`。健康检查示例：`curl http://127.0.0.1:8080/health`，API 文档：`http://LXC-IP:8080/docs`。
+
+`APP_HOST=0.0.0.0` 会监听 LXC 的所有网络接口，请使用防火墙限制来源。生产环境更建议改为 `127.0.0.1`，安装 Nginx 并参考 `deploy/nginx.conf.example` 配置反向代理及 HTTPS。
 
 ### 更新版本
 
