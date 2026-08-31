@@ -11,6 +11,7 @@
 - Have I Been Pwned v3：邮箱泄漏事件（需要 HIBP API Key）
 - XposedOrNot：免费邮箱泄漏分析和公开域名泄漏事件
 - LeakCheck：免费查询邮箱、用户名的泄漏来源和字段；可选 Pro API Key
+- WhiteIntel：企业域名 Infostealer/Combolist 记录（需要 Enterprise API Key，强制不返回密码）
 - 定时或立即扫描；SHA-256 内容指纹去重，只对新增结果告警
 - 资产拖动排序；手动检测后 24 小时内自动任务跳过，保证每天最多自动检查一次
 - 情报源独立状态图标、命中数量和第三方接口调用日志

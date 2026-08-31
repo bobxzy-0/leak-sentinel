@@ -1,5 +1,7 @@
 from app.models.models import AssetTypeEnum
-from app.services.providers import HIBPProvider, HudsonRockProvider, LeakCheckProvider, XposedOrNotProvider
+from app.services.providers import (
+    HIBPProvider, HudsonRockProvider, LeakCheckProvider, WhiteIntelProvider, XposedOrNotProvider,
+)
 
 
 def test_hudson_total_and_severity():
@@ -21,3 +23,4 @@ def test_free_providers_support_expected_asset_types():
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.email)
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.username)
     assert not LeakCheckProvider().is_enabled_for(AssetTypeEnum.password)
+    assert not WhiteIntelProvider().is_enabled_for(AssetTypeEnum.domain)

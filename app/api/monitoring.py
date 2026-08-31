@@ -94,6 +94,7 @@ def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, p
         "hudson_rock": ["hudson_rock"], "hibp": ["hibp_breach", "hibp_paste", "hibp_stealer_log"],
         "pwned_passwords": ["pwned_password"],
         "xposedornot": ["xposedornot"], "leakcheck": ["leakcheck"],
+        "whiteintel": ["whiteintel"],
     }
     if provider in source_groups:
         query = query.filter(Finding.source.in_(source_groups[provider]))

@@ -211,11 +211,41 @@ class LeakCheckProvider:
         return results
 
 
+class WhiteIntelProvider:
+    """Enterprise corporate-domain lookup with returned passwords omitted."""
+
+    name = "whiteintel"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        return bool(settings.WHITEINTEL_API_KEY) and asset_type == AssetTypeEnum.domain
+
+    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
+        if not self.is_enabled_for(asset_type):
+            return []
+        body = {
+            "apikey": settings.WHITEINTEL_API_KEY, "query": value, "type": "all",
+            "include_system_info": 1, "mask_password": 1, "limit": 500, "page": 1,
+        }
+        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
+            response = await client.post(
+                f"{settings.WHITEINTEL_BASE_URL}/get_corporate_leaks.php", json=body,
+                headers={"user-agent": "leak-sentinel/1.0"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        if not payload.get("success", False):
+            raise RuntimeError(payload.get("error") or payload.get("message") or "WhiteIntel request failed")
+        return [ProviderResult(
+            "whiteintel", f"whiteintel:{item.get('log_id') or index + 1}", 4, item,
+        ) for index, item in enumerate(payload.get("results") or [])]
+
+
 class ProviderRegistry:
     def __init__(self):
         self.providers = [
             HudsonRockProvider(), HIBPProvider(), PwnedPasswordsProvider(),
             XposedOrNotProvider(), LeakCheckProvider(),
+            WhiteIntelProvider(),
         ]
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:

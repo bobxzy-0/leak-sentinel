@@ -73,6 +73,7 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
             asset.value = ""
     return templates.TemplateResponse(request=request, name="fragments/assets.html", context={
         "assets": assets, "leakcheck_pro": bool(settings.LEAKCHECK_API_KEY),
+        "whiteintel_enabled": bool(settings.WHITEINTEL_API_KEY),
     })
 
 @router.get("/views/assets/new")
@@ -127,6 +128,12 @@ def _source_statuses():
             "description": "邮箱、用户名泄漏来源与字段；配置 Key 后返回完整记录",
             "enabled": settings.LEAKCHECK_ENABLED,
             "credential": "Pro API Key" if settings.LEAKCHECK_API_KEY else "Public API 免费模式",
+        },
+        {
+            "key": "whiteintel", "name": "WhiteIntel",
+            "description": "企业域名 Infostealer、Combolist、登录网站和主机上下文",
+            "enabled": bool(settings.WHITEINTEL_API_KEY),
+            "credential": "Enterprise API Key" if settings.WHITEINTEL_API_KEY else "待配置 API Key",
         },
     ]
 
