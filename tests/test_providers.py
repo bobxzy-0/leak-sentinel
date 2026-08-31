@@ -1,4 +1,4 @@
-from app.services.providers import HudsonRockProvider, MozillaMonitorProvider
+from app.services.providers import HudsonRockProvider
 
 
 def test_hudson_total_and_severity():
@@ -8,8 +8,3 @@ def test_hudson_total_and_severity():
     assert provider._severity(1) == 2
     assert provider._severity(10) == 3
     assert provider._severity(100) == 4
-
-
-def test_mozilla_monitor_is_disabled_without_token():
-    provider = MozillaMonitorProvider()
-    assert provider is not None
