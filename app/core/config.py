@@ -3,6 +3,8 @@ from typing import Optional
 
 class Settings(BaseSettings):
     APP_NAME: str = "万联泄漏情报监控"
+    APP_HOST: str = "127.0.0.1"
+    APP_PORT: int = 8000
     DATABASE_URL: str = "sqlite:///./leak_sentinel.db"
     MASTER_KEY: str
     JWT_SECRET_KEY: str
