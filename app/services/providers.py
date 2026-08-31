@@ -80,9 +80,50 @@ class HIBPProvider:
         return results
 
 
+class MozillaMonitorProvider:
+    """Mozilla Monitor user API; only returns emails owned by the FxA user."""
+
+    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
+        if (
+            asset_type != AssetTypeEnum.email
+            or not settings.MOZILLA_MONITOR_ENABLED
+            or not settings.MOZILLA_MONITOR_TOKEN
+        ):
+            return []
+        headers = {
+            "authorization": f"Bearer {settings.MOZILLA_MONITOR_TOKEN}",
+            "user-agent": "leak-sentinel/1.0",
+        }
+        url = f"{settings.MOZILLA_MONITOR_API_URL.rstrip('/')}/user/breaches"
+        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            user_breaches = response.json()
+        results = []
+        normalized = value.strip().lower()
+        for item in user_breaches:
+            accounts = item.get("breachedAccounts", [])
+            matching = [a for a in accounts if a.get("email", "").lower() == normalized]
+            if not matching:
+                continue
+            breach = item.get("breach", {})
+            breach_id = breach.get("id", "unknown")
+            classes = breach.get("dataClasses", [])
+            severity = 4 if any(x in classes for x in ("passwords", "credit-cards", "bank-account-numbers")) else 3
+            results.append(
+                ProviderResult(
+                    "mozilla_monitor",
+                    f"mozilla-monitor:{breach_id}",
+                    severity,
+                    {"breach": breach, "breachedAccounts": matching},
+                )
+            )
+        return results
+
+
 class ProviderRegistry:
     def __init__(self):
-        self.providers = [HudsonRockProvider(), HIBPProvider()]
+        self.providers = [HudsonRockProvider(), HIBPProvider(), MozillaMonitorProvider()]
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
         outcomes = await asyncio.gather(
