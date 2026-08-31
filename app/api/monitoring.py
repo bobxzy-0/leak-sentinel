@@ -135,6 +135,7 @@ def delete_channel(channel_id: int, db: Session = Depends(get_db), user: User = 
     channel = db.query(AlertChannel).filter_by(id=channel_id, owner_id=user.id).first()
     if not channel:
         raise HTTPException(404, "Alert channel not found")
+    db.query(AlertLog).filter(AlertLog.channel_id == channel.id).delete(synchronize_session=False)
     db.delete(channel)
     db.commit()
 
