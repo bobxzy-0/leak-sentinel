@@ -18,10 +18,13 @@
                         <form id="add-asset-form"  class="mt-6 space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700">资产类型</label>
-                                <select name="asset_type" id="asset-type-select" onchange="toggleDomainHint()" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl border">
+                                <select name="asset_type" id="asset-type-select" onchange="updateAssetForm()" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl border">
                                     <option value="email">电子邮箱 (Email)</option>
                                     <option value="domain">网站域名 (Domain)</option>
                                     <option value="username">用户名 (Username)</option>
+                                    <option value="password">密码 (Password)</option>
+                                    <option value="api_key">API 密钥 (API Key)</option>
+                                    <option value="token">令牌 (Token)</option>
                                 </select>
                             </div>
                             
@@ -32,7 +35,7 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-slate-700">监控值 / 域名</label>
-                                <input type="text" name="value" required placeholder="example.com 或 user@example.com" class="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <input type="text" id="asset-value" name="value" required placeholder="example.com 或 user@example.com" autocomplete="off" class="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             </div>
                             
                             <div id="domain-hint" class="hidden mt-4 bg-amber-50 p-4 rounded-xl border border-amber-200 flex gap-3">
@@ -61,14 +64,18 @@
 </div>
 
 <script>
-    function toggleDomainHint() {
+    function updateAssetForm() {
         const val = document.getElementById('asset-type-select').value;
         const hint = document.getElementById('domain-hint');
+        const input = document.getElementById('asset-value');
         if (val === 'domain') {
             hint.classList.remove('hidden');
         } else {
             hint.classList.add('hidden');
         }
+        const sensitive = ['password', 'api_key', 'token'].includes(val);
+        input.type = sensitive ? 'password' : 'text';
+        input.placeholder = sensitive ? '输入敏感值（保存后仅显示为掩码）' : 'example.com 或 user@example.com';
     }
     
     function submitAddAsset() {
