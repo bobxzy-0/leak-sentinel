@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from app.api.deps import get_current_user
 from sqlalchemy.orm import Session
 from app.models.models import AlertChannel, AlertLog, Finding, MonitoredAsset, ProviderCallLog
-from app.core.crypto import crypto_service
+from app.core.crypto import crypto_service, mask_sensitive_value
 from app.core.config import settings
 from app.core.database import get_db
 
@@ -68,7 +68,7 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
     for asset in assets:
         if asset.value_ciphertext:
             value = crypto_service.decrypt(asset.value_ciphertext)
-            asset.value = "••••••••" if asset.asset_type.value in ("password", "api_key", "token") else value
+            asset.value = mask_sensitive_value(value, asset.asset_type.value) if asset.asset_type.value in ("password", "api_key", "token") else value
         else:
             asset.value = ""
     return templates.TemplateResponse(request=request, name="fragments/assets.html", context={"assets": assets})
@@ -104,9 +104,9 @@ def _source_statuses():
         {
             "key": "hibp",
             "name": "Have I Been Pwned",
-            "description": "邮箱数据泄漏事件",
-            "enabled": bool(settings.HIBP_API_KEY),
-            "credential": "API Key" if settings.HIBP_API_KEY else "未配置 API Key",
+            "description": "免费查询域名泄漏事件；配置 API Key 后增加邮箱精确查询",
+            "enabled": True,
+            "credential": "完整模式 · API Key" if settings.HIBP_API_KEY else "基础免费模式 · 无需 API Key",
         },
         {
             "key": "pwned_passwords",

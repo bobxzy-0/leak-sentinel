@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.models.models import MonitoredAsset, User, AssetTypeEnum
 from app.schemas.schemas import AssetCreate, AssetResponse
 from app.api.deps import get_current_user
-from app.core.crypto import crypto_service
+from app.core.crypto import crypto_service, mask_sensitive_value
 import hashlib
 import re
 from urllib.parse import urlsplit
@@ -49,7 +49,7 @@ def get_assets(db: Session = Depends(get_db), current_user: User = Depends(get_c
     for asset in assets:
         if asset.value_ciphertext:
             value = crypto_service.decrypt(asset.value_ciphertext)
-            asset.value = "••••••••" if asset.asset_type.value in ("password", "api_key", "token") else value
+            asset.value = mask_sensitive_value(value, asset.asset_type.value) if asset.asset_type.value in ("password", "api_key", "token") else value
         else:
             asset.value = ""
         asset.watched_sites = asset.watched_sites_json or []
@@ -93,7 +93,7 @@ def create_asset(asset_in: AssetCreate, db: Session = Depends(get_db), current_u
     db.commit()
     db.refresh(new_asset)
     
-    new_asset.value = "••••••••" if asset_in.asset_type.value in ("password", "api_key", "token") else asset_in.value
+    new_asset.value = mask_sensitive_value(asset_in.value, asset_in.asset_type.value) if asset_in.asset_type.value in ("password", "api_key", "token") else asset_in.value
     new_asset.watched_sites = watched_sites
     return new_asset
 

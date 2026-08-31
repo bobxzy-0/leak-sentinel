@@ -75,18 +75,24 @@ class HudsonRockProvider:
 
 
 class HIBPProvider:
-    """HIBP v3 account lookup. HIBP only supports email assets here."""
+    """HIBP v3 free breach catalog for domains and paid account lookup for emails."""
 
     name = "hibp"
 
     def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
-        return asset_type == AssetTypeEnum.email and bool(settings.HIBP_API_KEY)
+        return asset_type == AssetTypeEnum.domain or (
+            asset_type == AssetTypeEnum.email and bool(settings.HIBP_API_KEY)
+        )
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
-        if asset_type != AssetTypeEnum.email or not settings.HIBP_API_KEY:
+        if asset_type == AssetTypeEnum.domain:
+            url = f"https://haveibeenpwned.com/api/v3/breaches?domain={quote(value)}"
+            headers = {"user-agent": "leak-sentinel/1.0"}
+        elif asset_type == AssetTypeEnum.email and settings.HIBP_API_KEY:
+            url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{quote(value)}?truncateResponse=false"
+            headers = {"hibp-api-key": settings.HIBP_API_KEY, "user-agent": "leak-sentinel/1.0"}
+        else:
             return []
-        url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{quote(value)}?truncateResponse=false"
-        headers = {"hibp-api-key": settings.HIBP_API_KEY, "user-agent": "leak-sentinel/1.0"}
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
             response = await client.get(url, headers=headers)
             if response.status_code == 404:

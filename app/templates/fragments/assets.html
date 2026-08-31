@@ -1,8 +1,4 @@
-<div class="flex justify-between items-end mb-8">
-    <div>
-        <h1 class="text-3xl font-bold text-slate-900 tracking-tight">监控资产</h1>
-        <p class="text-slate-500 mt-2 text-sm">管理您需要持续监控的邮箱、域名与凭证</p>
-    </div>
+<div class="flex justify-end mb-6">
     <button hx-get="/views/assets/new" hx-target="#modal-container" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm">
         + 添加资产
     </button>
@@ -55,7 +51,11 @@
                     <td class="px-6 py-4">
                         {% set provider_states = asset.provider_status_json or {} %}
                         <div class="flex items-center gap-2">
-                            {% for key, label in [('hudson_rock', 'HR'), ('hibp', 'HIBP'), ('pwned_passwords', 'PWP')] %}
+                            {% if asset.asset_type.value in ('domain', 'email') %}{% set visible_providers = [('hudson_rock', 'HR'), ('hibp', 'HIBP')] %}
+                            {% elif asset.asset_type.value == 'username' %}{% set visible_providers = [('hudson_rock', 'HR')] %}
+                            {% elif asset.asset_type.value == 'password' %}{% set visible_providers = [('pwned_passwords', 'PWP')] %}
+                            {% else %}{% set visible_providers = [] %}{% endif %}
+                            {% for key, label in visible_providers %}
                                 {% set state = provider_states.get(key, {}) %}
                                 {% set status = state.get('status', 'pending') %}
                                 {% set count = state.get('count', 0) %}
@@ -64,13 +64,14 @@
                                     {% elif status == 'clean' %}bg-emerald-50 text-emerald-700 border-emerald-300
                                     {% elif status == 'error' %}bg-amber-50 text-amber-700 border-amber-300
                                     {% else %}bg-slate-50 text-slate-400 border-slate-200{% endif %}"
-                                    title="{{ label }}：{% if status == 'found' %}发现 {{ count }} 条，点击查看泄漏网站、时间和字段{% elif status == 'clean' %}未发现泄漏{% elif status == 'error' %}检测失败：{{ state.get('error', '') }}{% elif status == 'disabled' %}未启用或不适用{% else %}尚未检测{% endif %}；检查时间：{{ state.get('checked_at', '无') }}">
+                                    title="{{ label }}：{% if status == 'found' %}发现 {{ count }} 条，点击查看泄漏网站、时间和字段{% elif status == 'clean' %}未发现泄漏{% elif status == 'error' %}检测失败：{{ state.get('error', '') }}{% elif status == 'disabled' and key == 'hibp' %}基础免费模式已启用；邮箱精确查询需要 API Key{% elif status == 'disabled' %}该资产类型不适用{% else %}尚未检测{% endif %}；检查时间：{{ state.get('checked_at', '无') }}">
                                     {{ label }}
                                     {% if status == 'found' and count > 0 %}
                                         <span class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] shadow">{{ count }}</span>
                                     {% endif %}
                                 </button>
                             {% endfor %}
+                            {% if not visible_providers %}<span class="text-xs text-slate-400">暂无适用情报源</span>{% endif %}
                         </div>
                     </td>
                     <td class="px-4 py-4 text-slate-500 overflow-hidden"><div class="truncate" title="{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M:%S') if asset.last_checked_at else '从未' }}">{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</div></td>

@@ -40,9 +40,9 @@
             </div>
             <div class="flex items-center space-x-8">
                 <div class="space-x-8 text-sm font-medium text-slate-600">
-                    <a hx-get="/views/dashboard" hx-target="#main-content" hx-push-url="/" class="cursor-pointer hover:text-blue-600 transition-colors">仪表盘</a>
-                    <a hx-get="/views/assets" hx-target="#main-content" hx-push-url="/assets" class="cursor-pointer hover:text-blue-600 transition-colors">监控资产</a>
-                    <a hx-get="/views/settings" hx-target="#main-content" hx-push-url="/settings" class="cursor-pointer hover:text-blue-600 transition-colors">系统设置</a>
+                    <a data-nav="/" hx-get="/views/dashboard" hx-target="#main-content" hx-push-url="/" onclick="setActiveNav('/')" class="nav-link cursor-pointer hover:text-blue-600 transition-colors py-5 border-b-2 border-transparent">仪表盘</a>
+                    <a data-nav="/assets" hx-get="/views/assets" hx-target="#main-content" hx-push-url="/assets" onclick="setActiveNav('/assets')" class="nav-link cursor-pointer hover:text-blue-600 transition-colors py-5 border-b-2 border-transparent">监控资产</a>
+                    <a data-nav="/settings" hx-get="/views/settings" hx-target="#main-content" hx-push-url="/settings" onclick="setActiveNav('/settings')" class="nav-link cursor-pointer hover:text-blue-600 transition-colors py-5 border-b-2 border-transparent">系统设置</a>
                 </div>
                 <div hx-get="/views/nav_user" hx-trigger="load"></div>
             </div>
@@ -58,7 +58,18 @@
             if (path === '/assets') endpoint = '/views/assets';
             if (path === '/settings') endpoint = '/views/settings';
             htmx.ajax('GET', endpoint, {target: '#main-content'});
+            setActiveNav(path);
         });
+        function setActiveNav(path) {
+            const normalized = path === '/' ? '/' : path.replace(/\/$/, '');
+            document.querySelectorAll('.nav-link').forEach(link => {
+                const active = link.dataset.nav === normalized;
+                link.classList.toggle('text-blue-600', active);
+                link.classList.toggle('border-blue-600', active);
+                link.classList.toggle('font-semibold', active);
+                link.classList.toggle('border-transparent', !active);
+            });
+        }
         
         function logout() {
             localStorage.removeItem('access_token');
