@@ -134,9 +134,89 @@ class PwnedPasswordsProvider:
         return []
 
 
+class XposedOrNotProvider:
+    """Free XposedOrNot email analytics and public domain breach catalogue."""
+
+    name = "xposedornot"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        return settings.XPOSEDORNOT_ENABLED and asset_type in (AssetTypeEnum.email, AssetTypeEnum.domain)
+
+    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
+        if not self.is_enabled_for(asset_type):
+            return []
+        if asset_type == AssetTypeEnum.email:
+            url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics?email={quote(value)}"
+        else:
+            url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/breaches?domain={quote(value)}"
+        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
+            response = await client.get(url, headers={"user-agent": "leak-sentinel/1.0"})
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+            payload = response.json()
+        if asset_type == AssetTypeEnum.email:
+            details = ((payload.get("ExposedBreaches") or {}).get("breaches_details") or [])
+        else:
+            details = payload.get("exposedBreaches") or []
+        results = []
+        for index, item in enumerate(details):
+            ref = item.get("breach") or item.get("breachID") or f"result-{index + 1}"
+            results.append(ProviderResult("xposedornot", f"xon:{ref}", 3, item))
+        return results
+
+
+class LeakCheckProvider:
+    """LeakCheck public email/username lookup, upgraded to Pro v2 when a key is configured."""
+
+    name = "leakcheck"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        if not settings.LEAKCHECK_ENABLED:
+            return False
+        if asset_type in (AssetTypeEnum.email, AssetTypeEnum.username):
+            return True
+        return bool(settings.LEAKCHECK_API_KEY) and asset_type == AssetTypeEnum.domain
+
+    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
+        if not self.is_enabled_for(asset_type):
+            return []
+        headers = {"Accept": "application/json", "user-agent": "leak-sentinel/1.0"}
+        if settings.LEAKCHECK_API_KEY:
+            url = f"{settings.LEAKCHECK_PRO_URL}/query/{quote(value)}"
+            headers["X-API-Key"] = settings.LEAKCHECK_API_KEY
+        else:
+            url = f"{settings.LEAKCHECK_PUBLIC_URL}?check={quote(value)}"
+        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
+            response = await client.get(url, headers=headers)
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+            payload = response.json()
+        if not payload.get("success", True) or not payload.get("found", bool(payload.get("result") or payload.get("sources"))):
+            return []
+        items = payload.get("result") or payload.get("sources") or [payload]
+        if not isinstance(items, list):
+            items = [items]
+        results = []
+        for index, item in enumerate(items):
+            data = dict(item) if isinstance(item, dict) else {"source": item}
+            if not settings.LEAKCHECK_API_KEY:
+                data["fields"] = payload.get("fields", [])
+                data["found"] = payload.get("found", len(items))
+                data.setdefault("website", data.get("name"))
+            ref = data.get("name") or data.get("source") or f"result-{index + 1}"
+            date = data.get("date", "unknown")
+            results.append(ProviderResult("leakcheck", f"leakcheck:{ref}:{date}", 3, data))
+        return results
+
+
 class ProviderRegistry:
     def __init__(self):
-        self.providers = [HudsonRockProvider(), HIBPProvider(), PwnedPasswordsProvider()]
+        self.providers = [
+            HudsonRockProvider(), HIBPProvider(), PwnedPasswordsProvider(),
+            XposedOrNotProvider(), LeakCheckProvider(),
+        ]
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
         outcomes = await asyncio.gather(

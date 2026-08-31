@@ -1,5 +1,5 @@
 from app.models.models import AssetTypeEnum
-from app.services.providers import HIBPProvider, HudsonRockProvider
+from app.services.providers import HIBPProvider, HudsonRockProvider, LeakCheckProvider, XposedOrNotProvider
 
 
 def test_hudson_total_and_severity():
@@ -13,3 +13,11 @@ def test_hudson_total_and_severity():
 
 def test_hibp_free_domain_catalog_is_enabled_without_key():
     assert HIBPProvider().is_enabled_for(AssetTypeEnum.domain)
+
+
+def test_free_providers_support_expected_asset_types():
+    assert XposedOrNotProvider().is_enabled_for(AssetTypeEnum.email)
+    assert XposedOrNotProvider().is_enabled_for(AssetTypeEnum.domain)
+    assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.email)
+    assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.username)
+    assert not LeakCheckProvider().is_enabled_for(AssetTypeEnum.password)

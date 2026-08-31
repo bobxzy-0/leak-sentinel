@@ -71,7 +71,9 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
             asset.value = mask_sensitive_value(value, asset.asset_type.value) if asset.asset_type.value in ("password", "api_key", "token") else value
         else:
             asset.value = ""
-    return templates.TemplateResponse(request=request, name="fragments/assets.html", context={"assets": assets})
+    return templates.TemplateResponse(request=request, name="fragments/assets.html", context={
+        "assets": assets, "leakcheck_pro": bool(settings.LEAKCHECK_API_KEY),
+    })
 
 @router.get("/views/assets/new")
 async def view_assets_new(request: Request, user = Depends(get_current_user)):
@@ -114,6 +116,17 @@ def _source_statuses():
             "description": "通过 k-anonymity 检查密码是否出现在泄漏库",
             "enabled": True,
             "credential": "免费，无需 API Key",
+        },
+        {
+            "key": "xposedornot", "name": "XposedOrNot",
+            "description": "免费查询邮箱泄漏详情和公开域名泄漏事件",
+            "enabled": settings.XPOSEDORNOT_ENABLED, "credential": "免费，无需 API Key",
+        },
+        {
+            "key": "leakcheck", "name": "LeakCheck",
+            "description": "邮箱、用户名泄漏来源与字段；配置 Key 后返回完整记录",
+            "enabled": settings.LEAKCHECK_ENABLED,
+            "credential": "Pro API Key" if settings.LEAKCHECK_API_KEY else "Public API 免费模式",
         },
     ]
 

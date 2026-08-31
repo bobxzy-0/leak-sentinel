@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     HIBP_RATE_LIMIT_RPM: int = 10
     HUDSON_ROCK_ENABLED: bool = True
     HUDSON_ROCK_BASE_URL: str = "https://cavalier.hudsonrock.com/api/json/v2/osint-tools"
+    XPOSEDORNOT_ENABLED: bool = True
+    XPOSEDORNOT_BASE_URL: str = "https://api.xposedornot.com"
+    LEAKCHECK_ENABLED: bool = True
+    LEAKCHECK_API_KEY: Optional[str] = None
+    LEAKCHECK_PUBLIC_URL: str = "https://leakcheck.io/api/public"
+    LEAKCHECK_PRO_URL: str = "https://leakcheck.io/api/v2"
     SCAN_INTERVAL_MINUTES: int = 60
     HTTP_TIMEOUT_SECONDS: int = 20
     BREACH_CATALOG_SYNC_CRON: str = "0 0 * * *"

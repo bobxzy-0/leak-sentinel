@@ -19,6 +19,8 @@ def ensure_schema_compatibility():
     if engine.dialect.name == "postgresql":
         with engine.begin() as connection:
             connection.execute(text("ALTER TYPE assettypeenum ADD VALUE IF NOT EXISTS 'token'"))
+            connection.execute(text("ALTER TYPE findingsourceenum ADD VALUE IF NOT EXISTS 'xposedornot'"))
+            connection.execute(text("ALTER TYPE findingsourceenum ADD VALUE IF NOT EXISTS 'leakcheck'"))
     if "monitored_assets" not in inspector.get_table_names():
         return
     columns = {column["name"] for column in inspector.get_columns("monitored_assets")}
