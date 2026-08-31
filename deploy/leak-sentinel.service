@@ -1,0 +1,23 @@
+[Unit]
+Description=万联泄漏情报监控
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leak-sentinel
+Group=leak-sentinel
+WorkingDirectory=/opt/leak-sentinel
+EnvironmentFile=/etc/leak-sentinel/leak-sentinel.env
+ExecStart=/opt/leak-sentinel/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/leak-sentinel
+
+[Install]
+WantedBy=multi-user.target
