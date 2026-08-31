@@ -12,18 +12,21 @@
     <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50/50">
             <tr>
+                <th class="w-12 px-3 py-4" title="拖动排序"></th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">资产名称</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">值 / 域名</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">类型</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">状态</th>
+                <th class="px-6 py-4 text-left font-semibold text-slate-600">情报源</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">上次检查</th>
                 <th class="px-6 py-4 text-right font-semibold text-slate-600">操作</th>
             </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-slate-100">
+        <tbody id="assets-sortable" class="bg-white divide-y divide-slate-100">
             {% if assets %}
                 {% for asset in assets %}
-                <tr>
+                <tr draggable="true" data-asset-id="{{ asset.id }}" class="asset-row cursor-default">
+                    <td class="px-3 py-4 text-center text-slate-400 cursor-grab select-none drag-handle" title="按住拖动排序">⋮⋮</td>
                     <td class="px-6 py-4 text-slate-900 font-medium">{{ asset.label or '--' }}</td>
                     <td class="px-6 py-4 text-slate-700">{{ asset.value }}</td>
                     <td class="px-6 py-4 text-slate-500">
@@ -49,8 +52,30 @@
                             </span>
                         {% endif %}
                     </td>
+                    <td class="px-6 py-4">
+                        {% set provider_states = asset.provider_status_json or {} %}
+                        <div class="flex items-center gap-2">
+                            {% for key, label in [('hudson_rock', 'HR'), ('hibp', 'HIBP'), ('pwned_passwords', 'PWP')] %}
+                                {% set state = provider_states.get(key, {}) %}
+                                {% set status = state.get('status', 'pending') %}
+                                {% set count = state.get('count', 0) %}
+                                <span class="relative inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-lg text-xs font-bold border
+                                    {% if status == 'found' %}bg-rose-50 text-rose-700 border-rose-300
+                                    {% elif status == 'clean' %}bg-emerald-50 text-emerald-700 border-emerald-300
+                                    {% elif status == 'error' %}bg-amber-50 text-amber-700 border-amber-300
+                                    {% else %}bg-slate-50 text-slate-400 border-slate-200{% endif %}"
+                                    title="{{ label }}：{% if status == 'found' %}发现 {{ count }} 条{% elif status == 'clean' %}检查正常{% elif status == 'error' %}调用失败：{{ state.get('error', '') }}{% elif status == 'disabled' %}未启用或不适用{% else %}尚未检查{% endif %}">
+                                    {{ label }}
+                                    {% if status == 'found' and count > 0 %}
+                                        <span class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] shadow">{{ count }}</span>
+                                    {% endif %}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </td>
                     <td class="px-6 py-4 text-slate-500">{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</td>
                     <td class="px-6 py-4 text-right space-x-3">
+                        <button hx-post="/api/assets/{{ asset.id }}/scan" hx-swap="none" hx-disabled-elt="this" hx-on::before-request="this.textContent='检测中…'" hx-on::after-request="this.textContent='手动检测'; htmx.ajax('GET', '/views/assets', {target: '#main-content'})" class="text-emerald-600 hover:text-emerald-900 font-medium transition-colors">手动检测</button>
                         {% if asset.asset_type.value == 'domain' and not asset.is_domain_verified %}
                             <button hx-put="/api/assets/{{ asset.id }}/verify" hx-swap="none" onclick="setTimeout(()=>htmx.ajax('GET', '/views/assets', {target: '#main-content'}), 500)" class="text-blue-600 hover:text-blue-900 font-medium transition-colors">完成验证</button>
                         {% endif %}
@@ -60,7 +85,7 @@
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td colspan="6" class="px-6 py-16 text-center text-slate-400">
+                    <td colspan="8" class="px-6 py-16 text-center text-slate-400">
                         暂无监控资产。请点击右上角“添加资产”以开始监控。
                     </td>
                 </tr>
@@ -68,3 +93,41 @@
         </tbody>
     </table>
 </div>
+
+<script>
+(() => {
+    const tbody = document.getElementById('assets-sortable');
+    if (!tbody || tbody.dataset.sortReady === 'true') return;
+    tbody.dataset.sortReady = 'true';
+    let dragging = null;
+
+    tbody.addEventListener('dragstart', (event) => {
+        dragging = event.target.closest('.asset-row');
+        if (!dragging) return;
+        dragging.classList.add('opacity-40');
+        event.dataTransfer.effectAllowed = 'move';
+    });
+    tbody.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        const target = event.target.closest('.asset-row');
+        if (!dragging || !target || target === dragging) return;
+        const rect = target.getBoundingClientRect();
+        target.parentNode.insertBefore(dragging, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
+    });
+    tbody.addEventListener('dragend', async () => {
+        if (!dragging) return;
+        dragging.classList.remove('opacity-40');
+        dragging = null;
+        const assetIds = [...tbody.querySelectorAll('.asset-row')].map(row => Number(row.dataset.assetId));
+        const response = await fetch('/api/assets/reorder', {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('access_token'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({asset_ids: assetIds})
+        });
+        if (!response.ok) htmx.ajax('GET', '/views/assets', {target: '#main-content'});
+    });
+})();
+</script>
