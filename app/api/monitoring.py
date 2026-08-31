@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.crypto import crypto_service
 from app.core.database import get_db
-from app.models.models import AlertChannel, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, User
+from app.models.models import AlertChannel, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, ProviderCallLog, User
 from app.services.providers import HudsonRockProvider
 from app.services.scanner import scan_asset
 
@@ -56,7 +56,18 @@ async def run_scan(asset_id: int, db: Session = Depends(get_db), user: User = De
     asset = db.query(MonitoredAsset).filter_by(id=asset_id, owner_id=user.id).first()
     if not asset:
         raise HTTPException(404, "Asset not found")
-    return await scan_asset(db, asset)
+    return await scan_asset(db, asset, trigger="manual")
+
+
+@router.get("/provider-calls")
+def list_provider_calls(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(401, "Authentication required")
+    limit = min(max(limit, 1), 200)
+    query = db.query(ProviderCallLog).join(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id)
+    total = query.count()
+    items = query.order_by(ProviderCallLog.called_at.desc()).offset(skip).limit(limit).all()
+    return {"total": total, "items": items}
 
 
 @router.get("/findings")
