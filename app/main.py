@@ -11,6 +11,27 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
 from app.models.models import User, RoleEnum
+from sqlalchemy import inspect, text
+
+def ensure_schema_compatibility():
+    """Apply small additive upgrades for installations created before migrations existed."""
+    inspector = inspect(engine)
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TYPE assettypeenum ADD VALUE IF NOT EXISTS 'token'"))
+    if "monitored_assets" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("monitored_assets")}
+    if "sort_order" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE monitored_assets ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            ))
+    if "provider_status_json" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE monitored_assets ADD COLUMN provider_status_json JSON"
+            ))
 
 def ensure_admin():
     db = SessionLocal()
@@ -25,6 +46,7 @@ def ensure_admin():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_schema_compatibility()
     ensure_admin()
     init_scheduler()
     yield
