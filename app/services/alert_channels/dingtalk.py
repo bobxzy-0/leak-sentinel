@@ -8,6 +8,7 @@ import hashlib
 import base64
 import urllib.parse
 from app.core.crypto import crypto_service
+from app.services.alert_templates import render_body
 import logging
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class DingTalkChannel(AlertChannelBase):
             "msgtype": "markdown",
             "markdown": {
                 "title": f"[S{finding.severity}] 数据泄漏告警",
-                "text": f"### 🚨 [S{finding.severity}] 数据泄漏告警\n- **监控对象**：{finding.asset.label if finding.asset else 'Global'}\n- **数据源**：{finding.source.value}\n- **事件标识**：{finding.external_ref}\n- **发现时间**：{finding.first_seen_at}"
+                "text": render_body(finding, config)
             }
         }
         

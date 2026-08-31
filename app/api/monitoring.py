@@ -27,6 +27,7 @@ class ChannelCreate(BaseModel):
     webhook_url: HttpUrl | None = None
     secret: str | None = None
     recipients: list[EmailStr] = []
+    body_template: str | None = None
 
 
 class ChannelUpdate(BaseModel):
@@ -81,14 +82,26 @@ def list_provider_calls(skip: int = 0, limit: int = 50, db: Session = Depends(ge
 
 
 @router.get("/findings")
-def list_findings(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, provider: str | None = None,
+                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not user:
         raise HTTPException(401, "Authentication required")
     limit = min(max(limit, 1), 200)
     query = db.query(Finding).join(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id)
+    if asset_id is not None:
+        query = query.filter(Finding.asset_id == asset_id)
+    source_groups = {
+        "hudson_rock": ["hudson_rock"], "hibp": ["hibp_breach", "hibp_paste", "hibp_stealer_log"],
+        "pwned_passwords": ["pwned_password"],
+    }
+    if provider in source_groups:
+        query = query.filter(Finding.source.in_(source_groups[provider]))
     total = query.count()
     items = query.order_by(Finding.first_seen_at.desc()).offset(skip).limit(limit).all()
-    return {"total": total, "items": items}
+    return {"total": total, "items": [{
+        "id": item.id, "source": item.source.value, "external_ref": item.external_ref,
+        "severity": item.severity, "first_seen_at": item.first_seen_at, "data": item.raw_data_json or {},
+    } for item in items]}
 
 
 @router.post("/channels", status_code=201)
@@ -106,6 +119,10 @@ def create_channel(body: ChannelCreate, db: Session = Depends(get_db), user: Use
         config["secret_ciphertext"] = crypto_service.encrypt(body.secret)
     if body.recipients:
         config["recipients_ciphertext"] = crypto_service.encrypt(json.dumps([str(x) for x in body.recipients]))
+    if body.body_template:
+        if len(body.body_template) > 8000:
+            raise HTTPException(422, "body_template is too long")
+        config["body_template_ciphertext"] = crypto_service.encrypt(body.body_template)
     channel = AlertChannel(owner_id=user.id, name=body.name, channel_type=body.channel_type, config_ciphertext=json.dumps(config))
     db.add(channel)
     db.commit()
@@ -157,6 +174,7 @@ async def test_channel(channel_id: int, db: Session = Depends(get_db), user: Use
         source=SimpleNamespace(value="system_test"),
         external_ref="test-alert",
         first_seen_at=datetime.utcnow(),
+        raw_data_json={"Domain": "example.com", "BreachDate": "2026-08-31", "DataClasses": ["邮箱", "密码"]},
     )
     if not await handlers[channel.channel_type].send(test_finding, config):
         raise HTTPException(502, "测试告警发送失败，请检查配置和服务日志")

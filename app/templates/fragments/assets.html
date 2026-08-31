@@ -59,17 +59,17 @@
                                 {% set state = provider_states.get(key, {}) %}
                                 {% set status = state.get('status', 'pending') %}
                                 {% set count = state.get('count', 0) %}
-                                <span class="relative inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-lg text-xs font-bold border
+                                <button type="button" onclick="showProviderFindings({{ asset.id }}, '{{ key }}', '{{ label }}')" class="relative inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-lg text-xs font-bold border
                                     {% if status == 'found' %}bg-rose-50 text-rose-700 border-rose-300
                                     {% elif status == 'clean' %}bg-emerald-50 text-emerald-700 border-emerald-300
                                     {% elif status == 'error' %}bg-amber-50 text-amber-700 border-amber-300
                                     {% else %}bg-slate-50 text-slate-400 border-slate-200{% endif %}"
-                                    title="{{ label }}：{% if status == 'found' %}发现 {{ count }} 条{% elif status == 'clean' %}检查正常{% elif status == 'error' %}调用失败：{{ state.get('error', '') }}{% elif status == 'disabled' %}未启用或不适用{% else %}尚未检查{% endif %}">
+                                    title="{{ label }}：{% if status == 'found' %}发现 {{ count }} 条，点击查看泄漏网站、时间和字段{% elif status == 'clean' %}未发现泄漏{% elif status == 'error' %}检测失败：{{ state.get('error', '') }}{% elif status == 'disabled' %}未启用或不适用{% else %}尚未检测{% endif %}；检查时间：{{ state.get('checked_at', '无') }}">
                                     {{ label }}
                                     {% if status == 'found' and count > 0 %}
                                         <span class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] shadow">{{ count }}</span>
                                     {% endif %}
-                                </span>
+                                </button>
                             {% endfor %}
                         </div>
                     </td>
@@ -94,6 +94,7 @@
         </tbody>
     </table>
 </div>
+<div id="finding-detail-modal"></div>
 
 <script>
 (() => {
@@ -137,5 +138,13 @@ async function editAssetScope(id, currentSites) {
     const sites = value.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
     const response = await fetch(`/api/assets/${id}/scope`, {method:'PUT', headers:{'Authorization':'Bearer '+localStorage.getItem('access_token'),'Content-Type':'application/json'}, body:JSON.stringify({site_filter_mode: sites.length ? 'only' : 'all', watched_sites: sites})});
     if (response.ok) htmx.ajax('GET', '/views/assets', {target:'#main-content'}); else alert((await response.json()).detail || '保存失败');
+}
+function detailValue(data, keys, fallback='数据源未提供'){for(const key of keys){if(data[key]!==undefined&&data[key]!==null&&data[key]!=='')return Array.isArray(data[key])?data[key].join('、'):String(data[key])}return fallback}
+function escapeHtml(value){const d=document.createElement('div');d.textContent=String(value);return d.innerHTML}
+async function showProviderFindings(assetId,provider,label){
+ const box=document.getElementById('finding-detail-modal');box.innerHTML='<div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"><div class="bg-white rounded-2xl p-8">正在加载…</div></div>';
+ const r=await fetch(`/api/findings?asset_id=${assetId}&provider=${provider}&limit=100`,{headers:{'Authorization':'Bearer '+localStorage.getItem('access_token')}});if(!r.ok){box.innerHTML='';alert('加载泄漏详情失败');return}const payload=await r.json();
+ const rows=payload.items.map(item=>{const d=item.data||{},site=detailValue(d,['Domain','domain','website','url']),date=detailValue(d,['BreachDate','breach_date','date','created_at']),fields=detailValue(d,['DataClasses','data_classes','credentials']);return `<details class="border rounded-xl p-4"><summary class="cursor-pointer flex gap-3"><b class="truncate">${escapeHtml(item.external_ref)}</b><span class="text-rose-600">S${item.severity}</span></summary><div class="mt-3 grid md:grid-cols-2 gap-2 text-sm text-slate-600"><div><b>泄漏网站：</b>${escapeHtml(site)}</div><div><b>泄漏时间：</b>${escapeHtml(date)}</div><div class="md:col-span-2"><b>泄漏字段：</b>${escapeHtml(fields)}</div><div class="md:col-span-2"><b>系统发现：</b>${escapeHtml(item.first_seen_at)}</div></div><pre class="mt-3 p-3 bg-slate-50 rounded-lg text-xs overflow-auto max-h-48 whitespace-pre-wrap">${escapeHtml(JSON.stringify(d,null,2))}</pre></details>`}).join('');
+ box.innerHTML=`<div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4" onclick="if(event.target===this)this.parentNode.innerHTML='' "><div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden"><div class="p-5 border-b flex justify-between"><div><h3 class="font-bold">${escapeHtml(label)} 泄漏详情</h3><p class="text-xs text-slate-500 mt-1">共 ${payload.total} 条结果</p></div><button onclick="document.getElementById('finding-detail-modal').innerHTML=''">关闭</button></div><div class="p-5 space-y-3 overflow-y-auto max-h-[70vh]">${rows||'<div class="text-center text-slate-400 py-10">没有已保存的泄漏详情</div>'}</div></div></div>`;
 }
 </script>

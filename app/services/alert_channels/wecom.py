@@ -3,6 +3,7 @@ from app.models.models import Finding
 from typing import Dict, Any
 import httpx
 from app.core.crypto import crypto_service
+from app.services.alert_templates import render_body
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class WecomChannel(AlertChannelBase):
         payload = {
             "msgtype": "markdown",
             "markdown": {
-                "content": f"## ⚠️ 数据泄漏告警\n> **监控资产**：<font color=\"warning\">{finding.asset.label if finding.asset else '全局'}</font>\n> **情报来源**：{finding.source.value}\n> **事件标识**：{finding.external_ref}\n> **严重级别**：S{finding.severity}\n> **发现时间**：{finding.first_seen_at}"
+                "content": render_body(finding, config)
             }
         }
         
