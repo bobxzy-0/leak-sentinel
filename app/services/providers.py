@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
@@ -16,6 +18,15 @@ class ProviderResult:
     severity: int
     data: dict[str, Any]
 
+@dataclass(frozen=True)
+class ProviderOutcome:
+    provider: str
+    status: str
+    results: list[ProviderResult]
+    match_count: int = 0
+    error: str | None = None
+    duration_ms: int = 0
+
 
 class HudsonRockProvider:
     """Community OSINT provider for domain, email and username statistics."""
@@ -25,6 +36,10 @@ class HudsonRockProvider:
         AssetTypeEnum.email: ("search-by-email", "email"),
         AssetTypeEnum.username: ("search-by-username", "username"),
     }
+    name = "hudson_rock"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        return settings.HUDSON_ROCK_ENABLED and asset_type in self.endpoints
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
         if not settings.HUDSON_ROCK_ENABLED or asset_type not in self.endpoints:
@@ -60,6 +75,11 @@ class HudsonRockProvider:
 class HIBPProvider:
     """HIBP v3 account lookup. HIBP only supports email assets here."""
 
+    name = "hibp"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        return asset_type == AssetTypeEnum.email and bool(settings.HIBP_API_KEY)
+
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
         if asset_type != AssetTypeEnum.email or not settings.HIBP_API_KEY:
             return []
@@ -80,9 +100,35 @@ class HIBPProvider:
         return results
 
 
+class PwnedPasswordsProvider:
+    """HIBP Pwned Passwords k-anonymity range lookup."""
+
+    name = "pwned_passwords"
+
+    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
+        return asset_type == AssetTypeEnum.password
+
+    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
+        if asset_type != AssetTypeEnum.password:
+            return []
+        digest = hashlib.sha1(value.encode()).hexdigest().upper()
+        prefix, suffix = digest[:5], digest[5:]
+        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
+            response = await client.get(
+                f"https://api.pwnedpasswords.com/range/{prefix}",
+                headers={"Add-Padding": "true", "user-agent": "leak-sentinel/1.0"},
+            )
+            response.raise_for_status()
+        for line in response.text.splitlines():
+            candidate, count = line.split(":", 1)
+            if candidate == suffix and int(count) > 0:
+                return [ProviderResult("pwned_password", f"pwned-password:{prefix}", 4, {"count": int(count)})]
+        return []
+
+
 class ProviderRegistry:
     def __init__(self):
-        self.providers = [HudsonRockProvider(), HIBPProvider()]
+        self.providers = [HudsonRockProvider(), HIBPProvider(), PwnedPasswordsProvider()]
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
         outcomes = await asyncio.gather(
@@ -93,3 +139,29 @@ class ProviderRegistry:
             if isinstance(outcome, list):
                 results.extend(outcome)
         return results
+
+    async def search_with_status(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderOutcome]:
+        enabled = [provider for provider in self.providers if provider.is_enabled_for(asset_type)]
+        disabled = [provider for provider in self.providers if not provider.is_enabled_for(asset_type)]
+        async def execute(provider):
+            started = time.perf_counter()
+            try:
+                response = await provider.search(asset_type, value)
+                return provider, response, None, int((time.perf_counter() - started) * 1000)
+            except Exception as exc:
+                return provider, [], exc, int((time.perf_counter() - started) * 1000)
+
+        responses = await asyncio.gather(*(execute(provider) for provider in enabled))
+        outcomes: list[ProviderOutcome] = []
+        for provider, response, error, duration_ms in responses:
+            if error:
+                outcomes.append(ProviderOutcome(provider.name, "error", [], error=str(error)[:300], duration_ms=duration_ms))
+                continue
+            count = len(response)
+            if provider.name == "hudson_rock" and response:
+                count = provider._total(response[0].data)
+            if provider.name == "pwned_passwords" and response:
+                count = response[0].data.get("count", 0)
+            outcomes.append(ProviderOutcome(provider.name, "found" if count else "clean", response, count, duration_ms=duration_ms))
+        outcomes.extend(ProviderOutcome(provider.name, "disabled", []) for provider in disabled)
+        return outcomes
