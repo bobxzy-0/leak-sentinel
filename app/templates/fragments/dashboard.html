@@ -21,8 +21,8 @@
     <h3 class="text-lg font-bold text-slate-900 mb-4">已对接情报库</h3>
     <div class="flex flex-wrap gap-3">
         {% for source in sources %}
-        <div class="flex items-center gap-2 px-4 py-2 rounded-xl border {% if source.enabled %}bg-emerald-50 border-emerald-200 text-emerald-700{% else %}bg-slate-50 border-slate-200 text-slate-500{% endif %}">
-            <span class="w-2 h-2 rounded-full {% if source.enabled %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+        <div title="{{ source.credential }}" class="flex items-center gap-2 px-4 py-2 rounded-xl border {% if source.enabled %}bg-emerald-50 border-emerald-200 text-emerald-700{% else %}bg-slate-50 border-slate-200 text-slate-500{% endif %}">
+            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black text-white {{ {'hudson_rock':'bg-indigo-600','hibp':'bg-slate-800','pwned_passwords':'bg-slate-800','xposedornot':'bg-violet-600','leakcheck':'bg-blue-600','whiteintel':'bg-cyan-600','intelligence_x':'bg-fuchsia-700'}.get(source.key, 'bg-slate-500') }}">{{ {'hudson_rock':'H','hibp':'P','pwned_passwords':'PP','xposedornot':'X','leakcheck':'L','whiteintel':'W','intelligence_x':'IX'}.get(source.key, '?') }}</span>
             <span class="text-sm font-semibold">{{ source.name }}</span>
             <span class="text-xs">{{ '运行中' if source.enabled else '未启用' }}</span>
         </div>
@@ -52,12 +52,13 @@
     <div class="p-6 border-b border-slate-100"><h3 class="text-lg font-bold text-slate-900">最近泄漏详情</h3></div>
     {% if recent_findings %}<div class="divide-y divide-slate-100">
     {% for finding in recent_findings %}
-      {% set data = finding.raw_data_json or {} %}
+      {% set detail = finding.normalized %}
       <details class="p-5"><summary class="cursor-pointer flex flex-wrap gap-3 items-center"><span class="font-semibold text-slate-900">{{ finding.asset.label or finding.asset_id }}</span><span class="text-sm text-rose-600">{{ finding.external_ref }}</span><span class="text-xs text-slate-400">{{ finding.first_seen_at.strftime('%Y-%m-%d %H:%M') }}</span></summary>
         <div class="mt-4 grid md:grid-cols-2 gap-3 text-sm text-slate-600">
-          <div><b>泄漏网站：</b>{{ data.get('Domain') or data.get('domain') or data.get('website') or data.get('url') or '数据源未提供' }}</div>
-          <div><b>泄漏时间：</b>{{ data.get('BreachDate') or data.get('breach_date') or data.get('date') or data.get('created_at') or '数据源未提供' }}</div>
-          <div class="md:col-span-2"><b>泄漏字段：</b>{{ (data.get('DataClasses') or data.get('data_classes') or data.get('credentials') or ['数据源未提供'])|join('、') if (data.get('DataClasses') or data.get('data_classes') or data.get('credentials')) is iterable and (data.get('DataClasses') or data.get('data_classes') or data.get('credentials')) is not string else (data.get('DataClasses') or data.get('data_classes') or data.get('credentials') or '数据源未提供') }}</div>
+          <div><b>泄漏网站：</b>{{ detail.websites|join('、') if detail.websites else '数据源未提供' }}</div>
+          <div><b>泄漏时间：</b>{{ detail.breach_time or '数据源未提供' }}</div>
+          <div class="md:col-span-2"><b>泄漏字段：</b>{{ detail.data_classes|join('、') if detail.data_classes else '数据源未提供' }}</div>
+          {% if detail.description %}<div class="md:col-span-2"><b>事件说明：</b>{{ detail.description }}</div>{% endif %}
         </div>
       </details>
     {% endfor %}</div>{% else %}<div class="p-8 text-center text-slate-400 text-sm">暂无泄漏详情。</div>{% endif %}

@@ -73,9 +73,13 @@ def fingerprint(asset_id: int, result: ProviderResult) -> str:
     return hashlib.sha256(f"{asset_id}:{result.source}:{result.external_ref}:{stable}".encode()).hexdigest()
 
 
-async def scan_asset(db: Session, asset: MonitoredAsset, trigger: str = "manual") -> dict:
+async def scan_asset(
+    db: Session, asset: MonitoredAsset, trigger: str = "manual", provider_name: str | None = None,
+) -> dict:
     value = crypto_service.decrypt(asset.value_ciphertext)
-    outcomes = await ProviderRegistry().search_with_status(asset.asset_type, value)
+    outcomes = await ProviderRegistry().search_with_status(
+        asset.asset_type, value, provider_name=provider_name,
+    )
     if asset.site_filter_mode == "only" and asset.watched_sites_json:
         outcomes = filter_outcomes_by_sites(outcomes, asset.watched_sites_json)
     results = [result for outcome in outcomes for result in outcome.results]
@@ -98,8 +102,10 @@ async def scan_asset(db: Session, asset: MonitoredAsset, trigger: str = "manual"
         await AlertDispatcher(db).dispatch(finding)
         created += 1
     checked_at = datetime.utcnow()
-    asset.last_checked_at = checked_at
-    asset.provider_status_json = {
+    if provider_name is None:
+        asset.last_checked_at = checked_at
+    provider_states = dict(asset.provider_status_json or {}) if provider_name else {}
+    provider_states.update({
         outcome.provider: {
             "status": outcome.status,
             "count": outcome.match_count,
@@ -109,7 +115,8 @@ async def scan_asset(db: Session, asset: MonitoredAsset, trigger: str = "manual"
             "checked_at": checked_at.isoformat(),
         }
         for outcome in outcomes
-    }
+    })
+    asset.provider_status_json = provider_states
     for outcome in outcomes:
         if outcome.status == "disabled":
             continue
@@ -127,4 +134,9 @@ async def scan_asset(db: Session, asset: MonitoredAsset, trigger: str = "manual"
             called_at=checked_at,
         ))
     db.commit()
-    return {"asset_id": asset.id, "results": len(results), "new_findings": created}
+    return {
+        "asset_id": asset.id, "provider": provider_name, "results": len(results),
+        "new_findings": created,
+        "outcomes": [{"provider": item.provider, "status": item.status, "error": item.error,
+                      "count": item.match_count} for item in outcomes],
+    }

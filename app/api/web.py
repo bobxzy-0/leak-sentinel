@@ -8,6 +8,7 @@ from app.models.models import AlertChannel, AlertLog, Finding, MonitoredAsset, P
 from app.core.crypto import crypto_service, mask_sensitive_value
 from app.core.config import settings
 from app.core.database import get_db
+from app.services.finding_normalizer import normalize_finding
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
@@ -46,6 +47,8 @@ async def view_dashboard(request: Request, user = Depends(get_current_user), db:
     recent_findings = db.query(Finding).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id
     ).order_by(Finding.first_seen_at.desc()).limit(10).all()
+    for finding in recent_findings:
+        finding.normalized = normalize_finding(finding.source.value, finding.raw_data_json)
     sources = _source_statuses()
     return templates.TemplateResponse(request=request, name="fragments/dashboard.html", context={
         "assets_count": assets_count,
@@ -134,13 +137,13 @@ def _source_statuses():
             "key": "whiteintel", "name": "WhiteIntel",
             "description": "企业域名 Infostealer、Combolist、登录网站和主机上下文",
             "enabled": bool(settings.WHITEINTEL_API_KEY),
-            "credential": "Enterprise API Key" if settings.WHITEINTEL_API_KEY else "待配置 API Key",
+            "credential": "Enterprise API Key 已配置" if settings.WHITEINTEL_API_KEY else "未配置 WHITEINTEL_API_KEY",
         },
         {
             "key": "intelligence_x", "name": "Intelligence X",
             "description": "泄漏、Paste 与暗网索引元数据（不下载泄漏文件）",
             "enabled": bool(settings.INTELX_API_KEY),
-            "credential": "API License" if settings.INTELX_API_KEY else "待配置 API Key",
+            "credential": "API License 已配置" if settings.INTELX_API_KEY else "未配置 INTELX_API_KEY（并确认对应 API 实例地址）",
         },
     ]
 

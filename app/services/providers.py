@@ -142,25 +142,63 @@ class XposedOrNotProvider:
     def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
         return settings.XPOSEDORNOT_ENABLED and asset_type in (AssetTypeEnum.email, AssetTypeEnum.domain)
 
+    async def _request_json(self, client: httpx.AsyncClient, url: str) -> dict[str, Any] | None:
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = await client.get(
+                    url, headers={"user-agent": "leak-sentinel/1.0", "accept": "application/json"},
+                    follow_redirects=True,
+                )
+                if response.status_code == 404:
+                    return None
+                if response.status_code == 429 or response.status_code >= 500:
+                    last_error = RuntimeError(
+                        f"XposedOrNot HTTP {response.status_code}: {response.text[:180]}"
+                    )
+                    if attempt < 2:
+                        await asyncio.sleep(1 << attempt)
+                        continue
+                response.raise_for_status()
+                return response.json()
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                last_error = exc
+                if attempt < 2:
+                    await asyncio.sleep(1 << attempt)
+                    continue
+        raise RuntimeError(f"XposedOrNot request failed after 3 attempts: {last_error}")
+
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
         if not self.is_enabled_for(asset_type):
             return []
-        if asset_type == AssetTypeEnum.email:
-            url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics?email={quote(value)}"
-        else:
-            url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/breaches?domain={quote(value)}"
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
-            response = await client.get(url, headers={"user-agent": "leak-sentinel/1.0"})
-            if response.status_code == 404:
-                return []
-            response.raise_for_status()
-            payload = response.json()
+            if asset_type == AssetTypeEnum.email:
+                analytics_url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics?email={quote(value)}"
+                try:
+                    payload = await self._request_json(client, analytics_url)
+                except RuntimeError:
+                    payload = await self._request_json(
+                        client,
+                        f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}?details=true",
+                    )
+            else:
+                payload = await self._request_json(
+                    client, f"{settings.XPOSEDORNOT_BASE_URL}/v1/breaches?domain={quote(value)}",
+                )
+        if not payload or payload.get("Error") or payload.get("status") == "Not Found":
+            return []
         if asset_type == AssetTypeEnum.email:
             details = ((payload.get("ExposedBreaches") or {}).get("breaches_details") or [])
+            if not details:
+                details = payload.get("breaches") or []
+                if len(details) == 1 and isinstance(details[0], list):
+                    details = details[0]
         else:
             details = payload.get("exposedBreaches") or []
         results = []
         for index, item in enumerate(details):
+            if not isinstance(item, dict):
+                item = {"breach": str(item)}
             ref = item.get("breach") or item.get("breachID") or f"result-{index + 1}"
             results.append(ProviderResult("xposedornot", f"xon:{ref}", 3, item))
         return results
@@ -300,9 +338,17 @@ class ProviderRegistry:
                 results.extend(outcome)
         return results
 
-    async def search_with_status(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderOutcome]:
-        enabled = [provider for provider in self.providers if provider.is_enabled_for(asset_type)]
-        disabled = [provider for provider in self.providers if not provider.is_enabled_for(asset_type)]
+    async def search_with_status(
+        self, asset_type: AssetTypeEnum, value: str, provider_name: str | None = None,
+    ) -> list[ProviderOutcome]:
+        selected = [
+            provider for provider in self.providers
+            if provider_name is None or provider.name == provider_name
+        ]
+        if provider_name is not None and not selected:
+            raise ValueError(f"Unknown provider: {provider_name}")
+        enabled = [provider for provider in selected if provider.is_enabled_for(asset_type)]
+        disabled = [provider for provider in selected if not provider.is_enabled_for(asset_type)]
         async def execute(provider):
             started = time.perf_counter()
             try:

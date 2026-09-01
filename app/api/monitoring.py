@@ -13,6 +13,7 @@ from app.core.crypto import crypto_service
 from app.core.database import get_db
 from app.models.models import AlertChannel, AlertLog, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, ProviderCallLog, User
 from app.services.providers import HudsonRockProvider
+from app.services.finding_normalizer import normalize_finding
 from app.services.scanner import scan_asset
 from app.services.alert_channels.dingtalk import DingTalkChannel
 from app.services.alert_channels.email import EmailChannel
@@ -70,6 +71,28 @@ async def run_scan(asset_id: int, db: Session = Depends(get_db), user: User = De
     return await scan_asset(db, asset, trigger="manual")
 
 
+@router.post("/assets/{asset_id}/scan/{provider}")
+async def retry_provider_scan(
+    asset_id: int, provider: str, db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not user:
+        raise HTTPException(401, "Authentication required")
+    asset = db.query(MonitoredAsset).filter_by(id=asset_id, owner_id=user.id).first()
+    if not asset:
+        raise HTTPException(404, "Asset not found")
+    try:
+        result = await scan_asset(db, asset, trigger="retry", provider_name=provider)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    outcome = result["outcomes"][0]
+    if outcome["status"] == "disabled":
+        raise HTTPException(409, "该情报源未配置或不适用于此资产类型")
+    if outcome["status"] == "error":
+        raise HTTPException(502, outcome["error"] or "情报源调用失败")
+    return result
+
+
 @router.get("/provider-calls")
 def list_provider_calls(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not user:
@@ -103,7 +126,9 @@ def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, p
     items = query.order_by(Finding.first_seen_at.desc()).offset(skip).limit(limit).all()
     return {"total": total, "items": [{
         "id": item.id, "source": item.source.value, "external_ref": item.external_ref,
-        "severity": item.severity, "first_seen_at": item.first_seen_at, "data": item.raw_data_json or {},
+        "severity": item.severity, "first_seen_at": item.first_seen_at,
+        "normalized": normalize_finding(item.source.value, item.raw_data_json),
+        "data": item.raw_data_json or {},
     } for item in items]}
 
 
