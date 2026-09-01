@@ -11,15 +11,22 @@
 <label class="text-sm text-slate-600">类型<select name="channel_type" id="channel-type" onchange="toggleChannelFields()" class="mt-1 w-full px-3 py-2 border rounded-xl"><option value="webhook">Webhook</option><option value="email">SMTP 邮件</option></select></label>
 <label id="webhook-group" class="md:col-span-2 text-sm text-slate-600">Webhook 地址<input name="webhook_url" placeholder="https://..." class="mt-1 w-full px-3 py-2 border rounded-xl"></label>
 <label id="recipients-group" class="hidden md:col-span-2 text-sm text-slate-600">收件人<textarea name="recipients_text" rows="2" placeholder="每行一个邮箱" class="mt-1 w-full px-3 py-2 border rounded-xl"></textarea></label>
-<label id="template-group" class="md:col-span-2 text-sm text-slate-600">Body 模板<textarea name="body_template" rows="8" class="mt-1 w-full px-3 py-2 border rounded-xl font-mono text-xs">### 🚨 数据泄漏告警
-- 监控资产：{asset}
-- 资产类型：{asset_type}
-- 情报来源：{source}
-- 关联网站：{website}
-- 泄漏时间：{breach_date}
-- 泄漏字段：{data_classes}
-- 事件标识：{external_ref}
-- 发现时间：{detected_at}</textarea><span class="block mt-1 text-xs text-slate-400">可用：{asset} {asset_type} {source} {website} {breach_date} {data_classes} {external_ref} {severity} {detected_at}</span></label>
+<label id="template-group" class="md:col-span-2 text-sm text-slate-600">Body 模板<textarea name="body_template" rows="16" class="mt-1 w-full px-3 py-2 border rounded-xl font-mono text-xs">### 🚨 数据泄漏告警
+- **涉及网站**：
+{website_list}
+
+- **情报来源**：{source}
+- **监控对象**：{asset}
+- **对象类型**：{asset_type}
+- **对象内容**：{asset_value}
+- **最早泄漏事件**：{earliest_breach}
+- **泄漏字段**：{data_classes}
+- **影响记录**：{record_count}
+- **事件标识**：{external_ref}
+- **系统发现时间**：{detected_at}
+
+**处置建议**：
+{recommendations}</textarea><span class="block mt-1 text-xs text-slate-400">可用：{website_list} {source} {asset} {asset_type} {asset_value} {earliest_breach} {data_classes} {record_count} {external_ref} {severity} {detected_at} {recommendations}</span></label>
 <div id="smtp-note" class="hidden md:col-span-2 text-xs {% if smtp_ready %}text-emerald-600{% else %}text-amber-600{% endif %}">{{ 'SMTP 配置已就绪' if smtp_ready else '请先在环境文件配置 SMTP_HOST 和 SMTP_FROM' }}</div>
 <div class="md:col-span-2 pt-2 flex items-center justify-between gap-3"><span id="channel-error" class="text-sm text-rose-600"></span><div class="flex gap-3"><button type="button" onclick="closeChannelModal()" class="border border-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-sm">取消</button><button type="button" onclick="createChannel()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm">添加通道</button></div></div>
 </form></div></div>

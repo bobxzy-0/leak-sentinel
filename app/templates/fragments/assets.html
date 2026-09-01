@@ -1,6 +1,6 @@
 <div class="flex justify-end mb-6">
     <button hx-get="/views/assets/new" hx-target="#modal-container" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-sm">
-        + 添加资产
+        + 新增监控对象
     </button>
 </div>
 
@@ -9,8 +9,8 @@
         <thead class="bg-slate-50/50">
             <tr>
                 <th class="w-12 px-3 py-4" title="拖动排序"></th>
-                <th class="w-40 px-4 py-4 text-left font-semibold text-slate-600">资产名称</th>
-                <th class="w-56 px-4 py-4 text-left font-semibold text-slate-600">值 / 域名</th>
+                <th class="w-40 px-4 py-4 text-left font-semibold text-slate-600">对象名称</th>
+                <th class="w-56 px-4 py-4 text-left font-semibold text-slate-600">对象内容</th>
                 <th class="w-28 px-4 py-4 text-left font-semibold text-slate-600">类型</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">状态</th>
                 <th class="px-6 py-4 text-left font-semibold text-slate-600">情报源</th>
@@ -90,7 +90,7 @@
             {% else %}
                 <tr>
                     <td colspan="8" class="px-6 py-16 text-center text-slate-400">
-                        暂无监控资产。请点击右上角“添加资产”以开始监控。
+                        暂无监控对象。请点击右上角“新增监控对象”以开始监控。
                     </td>
                 </tr>
             {% endif %}

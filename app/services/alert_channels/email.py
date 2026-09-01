@@ -8,6 +8,7 @@ import smtplib
 from email.message import EmailMessage
 from app.core.config import settings
 from app.core.crypto import crypto_service
+from app.services.alert_templates import render_body
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,7 @@ class EmailChannel(AlertChannelBase):
             message["Subject"] = f"[万联泄漏情报监控][S{finding.severity}] 发现新的数据泄漏"
             message["From"] = settings.SMTP_FROM
             message["To"] = ", ".join(recipients)
-            message.set_content(
-                f"监控资产：{finding.asset.label if finding.asset else '未知'}\n"
-                f"资产类型：{getattr(getattr(finding.asset, 'asset_type', None), 'value', '未知')}\n"
-                f"情报来源：{finding.source.value}\n事件标识：{finding.external_ref}\n"
-                f"严重级别：S{finding.severity}\n发现时间：{finding.first_seen_at.isoformat()}Z\n"
-            )
+            message.set_content(render_body(finding, config))
             await asyncio.to_thread(self._send, message)
             return True
         except Exception:

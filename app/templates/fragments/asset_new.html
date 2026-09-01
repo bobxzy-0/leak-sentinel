@@ -10,14 +10,14 @@
             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="sm:flex sm:items-start">
                     <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                        <h3 class="text-lg leading-6 font-bold text-slate-900" id="modal-title">添加监控资产</h3>
+                        <h3 class="text-lg leading-6 font-bold text-slate-900" id="modal-title">新增监控对象</h3>
                         <div class="mt-2 text-sm text-slate-500">
                             选择您要监控的数据类型。对于域名监控，需要您拥有管理员权限以完成 HIBP DNS 所有权验证。
                         </div>
                         
                         <form id="add-asset-form"  class="mt-6 space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700">资产类型</label>
+                                <label class="block text-sm font-medium text-slate-700">对象类型</label>
                                 <select name="asset_type" id="asset-type-select" onchange="updateAssetForm()" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl border">
                                     <option value="email">电子邮箱 (Email)</option>
                                     <option value="domain">网站域名 (Domain)</option>
@@ -29,7 +29,7 @@
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-slate-700">资产名称 (可选)</label>
+                                <label class="block text-sm font-medium text-slate-700">对象名称（可选）</label>
                                 <input type="text" name="label" placeholder="例如：公司主域名" class="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             </div>
 
