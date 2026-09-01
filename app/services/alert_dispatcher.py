@@ -2,6 +2,7 @@ from app.models.models import Finding, AlertChannel, AlertLog, ChannelTypeEnum
 from app.services.alert_channels.dingtalk import DingTalkChannel
 from app.services.alert_channels.wecom import WecomChannel
 from app.services.alert_channels.email import EmailChannel
+from app.services.alert_channels.webhook import WebhookChannel
 from sqlalchemy.orm import Session
 import logging
 import json
@@ -12,6 +13,7 @@ class AlertDispatcher:
     def __init__(self, db: Session):
         self.db = db
         self.channels = {
+            ChannelTypeEnum.webhook: WebhookChannel(),
             ChannelTypeEnum.dingtalk: DingTalkChannel(),
             ChannelTypeEnum.wecom: WecomChannel(),
             ChannelTypeEnum.email: EmailChannel()

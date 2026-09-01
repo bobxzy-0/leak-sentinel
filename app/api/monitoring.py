@@ -18,6 +18,7 @@ from app.services.scanner import scan_asset
 from app.services.alert_channels.dingtalk import DingTalkChannel
 from app.services.alert_channels.email import EmailChannel
 from app.services.alert_channels.wecom import WecomChannel
+from app.services.alert_channels.webhook import WebhookChannel
 
 router = APIRouter()
 
@@ -26,7 +27,6 @@ class ChannelCreate(BaseModel):
     name: str
     channel_type: ChannelTypeEnum
     webhook_url: HttpUrl | None = None
-    secret: str | None = None
     recipients: list[EmailStr] = []
     body_template: str | None = None
 
@@ -136,15 +136,13 @@ def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, p
 def create_channel(body: ChannelCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not user:
         raise HTTPException(401, "Authentication required")
-    if body.channel_type in (ChannelTypeEnum.dingtalk, ChannelTypeEnum.wecom) and not body.webhook_url:
+    if body.channel_type in (ChannelTypeEnum.webhook, ChannelTypeEnum.dingtalk, ChannelTypeEnum.wecom) and not body.webhook_url:
         raise HTTPException(422, "webhook_url is required")
     if body.channel_type == ChannelTypeEnum.email and not body.recipients:
         raise HTTPException(422, "recipients are required")
     config = {}
     if body.webhook_url:
         config["webhook_url_ciphertext"] = crypto_service.encrypt(str(body.webhook_url))
-    if body.secret:
-        config["secret_ciphertext"] = crypto_service.encrypt(body.secret)
     if body.recipients:
         config["recipients_ciphertext"] = crypto_service.encrypt(json.dumps([str(x) for x in body.recipients]))
     if body.body_template:
@@ -191,6 +189,7 @@ async def test_channel(channel_id: int, db: Session = Depends(get_db), user: Use
     if not channel:
         raise HTTPException(404, "Alert channel not found")
     handlers = {
+        ChannelTypeEnum.webhook: WebhookChannel(),
         ChannelTypeEnum.dingtalk: DingTalkChannel(),
         ChannelTypeEnum.wecom: WecomChannel(),
         ChannelTypeEnum.email: EmailChannel(),

@@ -32,6 +32,7 @@ class FindingSourceEnum(str, enum.Enum):
     intelligence_x = "intelligence_x"
 
 class ChannelTypeEnum(str, enum.Enum):
+    webhook = "webhook"
     dingtalk = "dingtalk"
     wecom = "wecom"
     email = "email"
