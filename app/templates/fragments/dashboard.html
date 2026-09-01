@@ -17,14 +17,15 @@
     </div>
 </div>
 
-<div class="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-    <h3 class="text-lg font-bold text-slate-900 mb-4">已对接情报库</h3>
-    <div class="flex flex-wrap gap-3">
+<div class="mt-8">
+    <div class="flex items-end justify-between mb-4"><div><h3 class="text-lg font-bold text-slate-900">情报源</h3><p class="text-sm text-slate-500 mt-1">当前系统接入状态</p></div><span class="text-xs text-slate-400">{{ sources|selectattr('enabled')|list|length }} / {{ sources|length }} 运行中</span></div>
+    <div class="grid sm:grid-cols-2 xl:grid-cols-5 gap-3">
         {% for source in sources %}
-        <div title="{{ source.credential }}" class="flex items-center gap-2 px-4 py-2 rounded-xl border {% if source.enabled %}bg-emerald-50 border-emerald-200 text-emerald-700{% else %}bg-slate-50 border-slate-200 text-slate-500{% endif %}">
-            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black text-white {{ {'hudson_rock':'bg-indigo-600','hibp':'bg-slate-800','pwned_passwords':'bg-slate-800','xposedornot':'bg-violet-600','leakcheck':'bg-blue-600','whiteintel':'bg-cyan-600','intelligence_x':'bg-fuchsia-700'}.get(source.key, 'bg-slate-500') }}">{{ {'hudson_rock':'H','hibp':'P','pwned_passwords':'PP','xposedornot':'X','leakcheck':'L','whiteintel':'W','intelligence_x':'IX'}.get(source.key, '?') }}</span>
-            <span class="text-sm font-semibold">{{ source.name }}</span>
-            <span class="text-xs">{{ '运行中' if source.enabled else '未启用' }}</span>
+        <div title="{{ source.credential }}" class="relative bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+            <span class="absolute right-3 top-3 w-2.5 h-2.5 rounded-full {{ 'bg-emerald-500' if source.enabled else 'bg-slate-300' }}"></span>
+            <span class="w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-black {{ {'hudson_rock':'bg-indigo-50 text-indigo-700','hibp':'bg-slate-100 text-slate-800','pwned_passwords':'bg-slate-100 text-slate-800','xposedornot':'bg-violet-50 text-violet-700','leakcheck':'bg-blue-50 text-blue-700'}.get(source.key, 'bg-slate-100 text-slate-600') }}">{{ {'hudson_rock':'HR','hibp':'HIBP','pwned_passwords':'PP','xposedornot':'XON','leakcheck':'LC'}.get(source.key, '?') }}</span>
+            <div class="mt-4 text-sm font-semibold text-slate-900 truncate">{{ source.name }}</div>
+            <div class="mt-1 text-xs {{ 'text-emerald-600' if source.enabled else 'text-slate-400' }}">{{ '运行正常' if source.enabled else '未启用' }}</div>
         </div>
         {% endfor %}
     </div>

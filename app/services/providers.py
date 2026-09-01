@@ -135,12 +135,12 @@ class PwnedPasswordsProvider:
 
 
 class XposedOrNotProvider:
-    """Free XposedOrNot email analytics and public domain breach catalogue."""
+    """Free, keyless XposedOrNot email breach analytics."""
 
     name = "xposedornot"
 
     def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
-        return settings.XPOSEDORNOT_ENABLED and asset_type in (AssetTypeEnum.email, AssetTypeEnum.domain)
+        return settings.XPOSEDORNOT_ENABLED and asset_type == AssetTypeEnum.email
 
     async def _request_json(self, client: httpx.AsyncClient, url: str) -> dict[str, Any] | None:
         last_error = None
@@ -182,9 +182,7 @@ class XposedOrNotProvider:
                         f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}?details=true",
                     )
             else:
-                payload = await self._request_json(
-                    client, f"{settings.XPOSEDORNOT_BASE_URL}/v1/breaches?domain={quote(value)}",
-                )
+                return []
         if not payload or payload.get("Error") or payload.get("status") == "Not Found":
             return []
         if asset_type == AssetTypeEnum.email:
@@ -193,8 +191,6 @@ class XposedOrNotProvider:
                 details = payload.get("breaches") or []
                 if len(details) == 1 and isinstance(details[0], list):
                     details = details[0]
-        else:
-            details = payload.get("exposedBreaches") or []
         results = []
         for index, item in enumerate(details):
             if not isinstance(item, dict):
@@ -249,83 +245,11 @@ class LeakCheckProvider:
         return results
 
 
-class WhiteIntelProvider:
-    """Enterprise corporate-domain lookup with returned passwords omitted."""
-
-    name = "whiteintel"
-
-    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
-        return bool(settings.WHITEINTEL_API_KEY) and asset_type == AssetTypeEnum.domain
-
-    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
-        if not self.is_enabled_for(asset_type):
-            return []
-        body = {
-            "apikey": settings.WHITEINTEL_API_KEY, "query": value, "type": "all",
-            "include_system_info": 1, "mask_password": 1, "limit": 500, "page": 1,
-        }
-        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
-            response = await client.post(
-                f"{settings.WHITEINTEL_BASE_URL}/get_corporate_leaks.php", json=body,
-                headers={"user-agent": "leak-sentinel/1.0"},
-            )
-            response.raise_for_status()
-            payload = response.json()
-        if not payload.get("success", False):
-            raise RuntimeError(payload.get("error") or payload.get("message") or "WhiteIntel request failed")
-        return [ProviderResult(
-            "whiteintel", f"whiteintel:{item.get('log_id') or index + 1}", 4, item,
-        ) for index, item in enumerate(payload.get("results") or [])]
-
-
-class IntelligenceXProvider:
-    """Intelligence X leak/paste metadata search; document contents are not downloaded."""
-
-    name = "intelligence_x"
-
-    def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
-        return bool(settings.INTELX_API_KEY) and asset_type in (AssetTypeEnum.domain, AssetTypeEnum.email)
-
-    async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:
-        if not self.is_enabled_for(asset_type):
-            return []
-        headers = {"X-Key": settings.INTELX_API_KEY, "user-agent": "leak-sentinel/1.0"}
-        request = {
-            "term": value, "buckets": ["leaks.public", "pastes"], "lookuplevel": 0,
-            "maxresults": 100, "timeout": 5, "datefrom": "", "dateto": "",
-            "sort": 4, "media": 0, "terminate": [],
-        }
-        async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
-            started = await client.post(f"{settings.INTELX_BASE_URL}/intelligent/search", json=request, headers=headers)
-            started.raise_for_status()
-            search_id = started.json().get("id")
-            if not search_id:
-                return []
-            records = []
-            for _ in range(5):
-                await asyncio.sleep(1)
-                response = await client.get(
-                    f"{settings.INTELX_BASE_URL}/intelligent/search/result",
-                    params={"id": search_id, "limit": 100}, headers=headers,
-                )
-                response.raise_for_status()
-                page = response.json()
-                records.extend(page.get("records") or [])
-                if page.get("status") in (0, 1, 2):
-                    break
-        return [ProviderResult(
-            "intelligence_x", f"intelx:{item.get('storageid') or item.get('systemid') or index + 1}",
-            3, item,
-        ) for index, item in enumerate(records)]
-
-
 class ProviderRegistry:
     def __init__(self):
         self.providers = [
             HudsonRockProvider(), HIBPProvider(), PwnedPasswordsProvider(),
             XposedOrNotProvider(), LeakCheckProvider(),
-            WhiteIntelProvider(),
-            IntelligenceXProvider(),
         ]
 
     async def search(self, asset_type: AssetTypeEnum, value: str) -> list[ProviderResult]:

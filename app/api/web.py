@@ -76,8 +76,6 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
             asset.value = ""
     return templates.TemplateResponse(request=request, name="fragments/assets.html", context={
         "assets": assets, "leakcheck_pro": bool(settings.LEAKCHECK_API_KEY),
-        "whiteintel_enabled": bool(settings.WHITEINTEL_API_KEY),
-        "intelx_enabled": bool(settings.INTELX_API_KEY),
     })
 
 @router.get("/views/assets/new")
@@ -124,7 +122,7 @@ def _source_statuses():
         },
         {
             "key": "xposedornot", "name": "XposedOrNot",
-            "description": "免费查询邮箱泄漏详情和公开域名泄漏事件",
+            "description": "免费免密查询邮箱泄漏详情",
             "enabled": settings.XPOSEDORNOT_ENABLED, "credential": "免费，无需 API Key",
         },
         {
@@ -132,18 +130,6 @@ def _source_statuses():
             "description": "邮箱、用户名泄漏来源与字段；配置 Key 后返回完整记录",
             "enabled": settings.LEAKCHECK_ENABLED,
             "credential": "Pro API Key" if settings.LEAKCHECK_API_KEY else "Public API 免费模式",
-        },
-        {
-            "key": "whiteintel", "name": "WhiteIntel",
-            "description": "企业域名 Infostealer、Combolist、登录网站和主机上下文",
-            "enabled": bool(settings.WHITEINTEL_API_KEY),
-            "credential": "Enterprise API Key 已配置" if settings.WHITEINTEL_API_KEY else "未配置 WHITEINTEL_API_KEY",
-        },
-        {
-            "key": "intelligence_x", "name": "Intelligence X",
-            "description": "泄漏、Paste 与暗网索引元数据（不下载泄漏文件）",
-            "enabled": bool(settings.INTELX_API_KEY),
-            "credential": "API License 已配置" if settings.INTELX_API_KEY else "未配置 INTELX_API_KEY（并确认对应 API 实例地址）",
         },
     ]
 

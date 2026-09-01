@@ -1,7 +1,6 @@
 from app.models.models import AssetTypeEnum
 from app.services.providers import (
-    HIBPProvider, HudsonRockProvider, IntelligenceXProvider, LeakCheckProvider,
-    WhiteIntelProvider, XposedOrNotProvider,
+    HIBPProvider, HudsonRockProvider, LeakCheckProvider, XposedOrNotProvider,
 )
 
 
@@ -20,9 +19,7 @@ def test_hibp_free_domain_catalog_is_enabled_without_key():
 
 def test_free_providers_support_expected_asset_types():
     assert XposedOrNotProvider().is_enabled_for(AssetTypeEnum.email)
-    assert XposedOrNotProvider().is_enabled_for(AssetTypeEnum.domain)
+    assert not XposedOrNotProvider().is_enabled_for(AssetTypeEnum.domain)
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.email)
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.username)
     assert not LeakCheckProvider().is_enabled_for(AssetTypeEnum.password)
-    assert not WhiteIntelProvider().is_enabled_for(AssetTypeEnum.domain)
-    assert not IntelligenceXProvider().is_enabled_for(AssetTypeEnum.email)
