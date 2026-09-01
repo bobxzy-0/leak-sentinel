@@ -50,7 +50,7 @@
                     </td>
                     <td class="px-6 py-4">
                         {% set provider_states = asset.provider_status_json or {} %}
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-1.5 max-w-full">
                             {% if asset.asset_type.value == 'domain' %}{% set visible_providers = [('hudson_rock', 'HR', 'Hudson Rock', 'text-indigo-700'), ('hibp', 'HIBP', 'Have I Been Pwned', 'text-slate-800')] + ([('leakcheck', 'LC', 'LeakCheck', 'text-blue-700')] if leakcheck_pro else []) %}
                             {% elif asset.asset_type.value == 'email' %}{% set visible_providers = [('hudson_rock', 'HR', 'Hudson Rock', 'text-indigo-700'), ('hibp', 'HIBP', 'Have I Been Pwned', 'text-slate-800'), ('xposedornot', 'XON', 'XposedOrNot', 'text-violet-700'), ('leakcheck', 'LC', 'LeakCheck', 'text-blue-700')] %}
                             {% elif asset.asset_type.value == 'username' %}{% set visible_providers = [('hudson_rock', 'HR', 'Hudson Rock', 'text-indigo-700'), ('leakcheck', 'LC', 'LeakCheck', 'text-blue-700')] %}
@@ -60,16 +60,16 @@
                                 {% set state = provider_states.get(key, {}) %}
                                 {% set status = state.get('status', 'pending') %}
                                 {% set count = state.get('count', 0) %}
-                                <button type="button" onclick='{% if status == "error" %}showProviderError({{ asset.id }}, {{ key|tojson }}, {{ label|tojson }}, {{ state.get("error", "未知错误")|tojson }}, {{ state.get("checked_at", "无")|tojson }}){% else %}showProviderFindings({{ asset.id }}, {{ key|tojson }}, {{ label|tojson }}){% endif %}' class="group relative inline-flex items-center justify-center w-10 h-10 rounded-full bg-white border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md
+                                <button type="button" onclick='{% if status == "error" %}showProviderError({{ asset.id }}, {{ key|tojson }}, {{ label|tojson }}, {{ state.get("error", "未知错误")|tojson }}, {{ state.get("checked_at", "无")|tojson }}){% else %}showProviderFindings({{ asset.id }}, {{ key|tojson }}, {{ label|tojson }}){% endif %}' class="group relative shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md
                                     {% if status == 'found' %}border-rose-300
                                     {% elif status == 'clean' %}border-emerald-300
                                     {% elif status == 'error' %}border-amber-300
                                     {% else %}border-slate-200 opacity-50{% endif %}"
                                     title="{{ label }}：{% if status == 'found' %}发现 {{ count }} 条，点击查看泄漏网站、时间和字段{% elif status == 'clean' %}未发现泄漏{% elif status == 'error' %}检测失败：{{ state.get('error', '') }}{% elif status == 'disabled' and key == 'hibp' %}基础免费模式已启用；邮箱精确查询需要 API Key{% elif status == 'disabled' %}该资产类型不适用{% else %}尚未检测{% endif %}；检查时间：{{ state.get('checked_at', '无') }}">
-                                    <span class="text-[9px] font-black tracking-tight {{ brand_color }}">{{ icon }}</span>
-                                    <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white {% if status == 'found' %}bg-rose-500{% elif status == 'clean' %}bg-emerald-500{% elif status == 'error' %}bg-amber-400{% else %}bg-slate-300{% endif %}"></span>
+                                    <span class="text-[8px] font-black tracking-tighter {{ brand_color }}">{{ icon }}</span>
+                                    <span class="absolute -bottom-px -right-px w-2.5 h-2.5 rounded-full border-2 border-white {% if status == 'found' %}bg-rose-500{% elif status == 'clean' %}bg-emerald-500{% elif status == 'error' %}bg-amber-400{% else %}bg-slate-300{% endif %}"></span>
                                     {% if status == 'found' and count > 0 %}
-                                        <span class="absolute -top-2 -right-2 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] shadow">{{ count }}</span>
+                                        <span class="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 flex items-center justify-center rounded-full bg-rose-600 text-white text-[9px] shadow">{{ count }}</span>
                                     {% endif %}
                                 </button>
                             {% endfor %}
