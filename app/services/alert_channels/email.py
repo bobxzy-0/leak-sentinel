@@ -8,7 +8,7 @@ import smtplib
 from email.message import EmailMessage
 from app.core.config import settings
 from app.core.crypto import crypto_service
-from app.services.alert_templates import render_body
+from app.services.alert_templates import render_body, severity_label
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class EmailChannel(AlertChannelBase):
             if not settings.SMTP_HOST or not settings.SMTP_FROM or not recipients:
                 return False
             message = EmailMessage()
-            message["Subject"] = f"[万联泄漏情报监控][S{finding.severity}] 发现新的数据泄漏"
+            message["Subject"] = f"[万联泄漏情报监控][{severity_label(finding.severity)}] 发现新的数据泄漏"
             message["From"] = settings.SMTP_FROM
             message["To"] = ", ".join(recipients)
             message.set_content(render_body(finding, config))

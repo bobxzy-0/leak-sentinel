@@ -15,7 +15,8 @@ DEFAULT_TEMPLATE = """### 🚨 数据泄漏告警
 - **最早泄漏事件**：{earliest_breach}
 - **泄漏字段**：{data_classes}
 - **影响记录**：{record_count}
-- **事件标识**：{external_ref}
+- **风险等级**：{severity}
+- **新增事件**：{finding_count} 个
 - **系统发现时间**：{detected_at}
 
 **处置建议**：
@@ -25,6 +26,14 @@ DEFAULT_TEMPLATE = """### 🚨 数据泄漏告警
 class SafeValues(dict):
     def __missing__(self, key: str) -> str:
         return "{" + key + "}"
+
+
+def severity_label(value: Any) -> str:
+    try:
+        level = int(value)
+    except (TypeError, ValueError):
+        level = 0
+    return {4: "严重风险", 3: "高风险", 2: "中风险", 1: "低风险"}.get(level, "提示")
 
 
 def _mask_value(value: str, asset_type: str) -> str:
@@ -59,9 +68,12 @@ def _recommendations(asset_type: str) -> str:
 
 
 def finding_values(finding: Any) -> dict[str, str]:
-    data = getattr(finding, "raw_data_json", None) or {}
-    source_value = getattr(getattr(finding, "source", None), "value", "未知")
-    normalized = normalize_finding(source_value, data)
+    findings = getattr(finding, "batch_findings", None) or [finding]
+    normalized_items = []
+    for item in findings:
+        data = getattr(item, "raw_data_json", None) or {}
+        source_value = getattr(getattr(item, "source", None), "value", "未知")
+        normalized_items.append(normalize_finding(source_value, data))
     asset = getattr(finding, "asset", None)
     asset_type = getattr(getattr(asset, "asset_type", None), "value", "未知")
     asset_type_label = {
@@ -73,22 +85,35 @@ def finding_values(finding: Any) -> dict[str, str]:
         raw_value = crypto_service.decrypt(ciphertext) if ciphertext else getattr(asset, "value", "")
     except Exception:
         raw_value = ""
-    websites = normalized["websites"]
+    websites = list(dict.fromkeys(
+        site for normalized in normalized_items for site in normalized["websites"]
+    ))
     website = "、".join(websites) if websites else "数据源未提供"
     website_list = "\n".join(f"  - {site}" for site in websites) if websites else "  - 数据源未提供"
-    breach_date = normalized["breach_time"] or "数据源未提供"
-    title = normalized["title"] or str(getattr(finding, "external_ref", "未知事件"))
+    dated_events = [
+        (normalized["breach_time"], normalized["title"])
+        for normalized in normalized_items if normalized["breach_time"]
+    ]
+    breach_date, title = min(dated_events, default=("数据源未提供", "未知事件"))
+    sources = list(dict.fromkeys(normalized["source_label"] for normalized in normalized_items))
+    classes = list(dict.fromkeys(
+        field for normalized in normalized_items for field in normalized["data_classes"]
+    ))
+    counts = [normalized["record_count"] for normalized in normalized_items]
+    numeric_counts = [count for count in counts if isinstance(count, (int, float))]
+    record_count = sum(numeric_counts) if numeric_counts else next((count for count in counts if count), "数据源未提供")
     return {
         "asset": getattr(asset, "label", None) or "未命名对象",
         "asset_type": asset_type_label,
         "asset_value": _mask_value(str(raw_value), asset_type),
-        "source": normalized["source_label"],
+        "source": "、".join(sources),
         "website": website, "website_list": website_list,
         "breach_date": str(breach_date), "earliest_breach": f"{breach_date} · {title}",
-        "data_classes": "、".join(normalized["data_classes"]) or "数据源未提供",
-        "record_count": str(normalized["record_count"] or "数据源未提供"),
+        "data_classes": "、".join(classes) or "数据源未提供",
+        "record_count": str(record_count),
+        "finding_count": str(len(findings)),
         "external_ref": str(getattr(finding, "external_ref", "未知")),
-        "severity": str(getattr(finding, "severity", 0)),
+        "severity": severity_label(getattr(finding, "severity", 0)),
         "detected_at": str(getattr(finding, "first_seen_at", "未知")),
         "recommendations": _recommendations(asset_type),
     }
@@ -105,7 +130,7 @@ def payload_preview(template: str) -> str:
         "asset": "企业邮箱", "asset_type": "邮箱", "asset_value": "se***@example.com",
         "source": "Have I Been Pwned", "website": "example.com", "website_list": "  - example.com",
         "breach_date": "2026-08-31", "earliest_breach": "2026-08-31 · Example Breach",
-        "data_classes": "邮箱、密码", "external_ref": "example-breach",
-        "record_count": "1,234", "severity": "3", "detected_at": "2026-08-31 12:00:00",
+        "data_classes": "邮箱、密码", "finding_count": "1", "external_ref": "example-breach",
+        "record_count": "1,234", "severity": "高风险", "detected_at": "2026-08-31 12:00:00",
         "recommendations": "1. 修改密码\n2. 启用多因素认证",
     }))

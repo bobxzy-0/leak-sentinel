@@ -6,6 +6,7 @@ from app.services.alert_channels.webhook import WebhookChannel
 from sqlalchemy.orm import Session
 import logging
 import json
+from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,24 @@ class AlertDispatcher:
         }
 
     async def dispatch(self, finding: Finding):
-        if not finding.is_new:
+        await self.dispatch_batch([finding])
+
+    async def dispatch_batch(self, findings: list[Finding]):
+        findings = [finding for finding in findings if finding.is_new]
+        if not findings:
             return
-            
-        user_id = finding.asset.owner_id if finding.asset else None
+        first = findings[0]
+        summary = SimpleNamespace(
+            id=first.id,
+            asset=first.asset,
+            source=first.source,
+            severity=max(finding.severity for finding in findings),
+            external_ref=f"本次新增 {len(findings)} 个泄漏事件",
+            first_seen_at=min(finding.first_seen_at for finding in findings),
+            raw_data_json=first.raw_data_json,
+            batch_findings=findings,
+        )
+        user_id = first.asset.owner_id if first.asset else None
         
         if user_id:
             active_channels = self.db.query(AlertChannel).filter(
@@ -41,11 +56,12 @@ class AlertDispatcher:
             if channel.channel_type in self.channels:
                 try:
                     config = json.loads(channel.config_ciphertext) if channel.config_ciphertext else {}
-                    await self._send_and_log(channel, finding, config)
+                    await self._send_and_log(channel, summary, config)
                 except Exception as e:
                     logger.error(f"Failed to parse config for channel {channel.id}: {e}")
 
-        finding.is_new = False
+        for finding in findings:
+            finding.is_new = False
         self.db.commit()
 
     async def _send_and_log(self, channel: AlertChannel, finding: Finding, config: dict):

@@ -37,6 +37,37 @@ def test_default_alert_masks_object_and_lists_sites_before_source():
     assert values["asset_value"] == "se***@example.com"
     assert values["source"] == "XposedOrNot"
     assert values["earliest_breach"] == "2024 · Example Leak"
+    assert values["severity"] == "严重风险"
     assert body.index("涉及网站") < body.index("情报来源") < body.index("监控对象")
     assert "portal.example.com" in body
     assert "处置建议" in body
+
+
+def test_batch_alert_merges_new_findings():
+    asset = SimpleNamespace(
+        label="企业邮箱", asset_type=SimpleNamespace(value="email"),
+        value_ciphertext=crypto_service.encrypt("security@example.com"),
+    )
+    first = SimpleNamespace(
+        asset=asset, source=SimpleNamespace(value="xposedornot"), external_ref="one",
+        severity=3, first_seen_at="2026-09-01", raw_data_json={
+            "domain": "one.example", "xposed_date": "2025", "breach": "Newer",
+            "xposed_data": "Emails", "xposed_records": 10,
+        },
+    )
+    second = SimpleNamespace(
+        asset=asset, source=SimpleNamespace(value="hibp_breach"), external_ref="two",
+        severity=4, first_seen_at="2026-09-01", raw_data_json={
+            "Domain": "two.example", "BreachDate": "2020-01-01", "Name": "Older",
+            "DataClasses": ["Passwords"], "PwnCount": 20,
+        },
+    )
+    summary_data = vars(first).copy()
+    summary_data.update(batch_findings=[first, second], severity=4)
+    summary = SimpleNamespace(**summary_data)
+    values = finding_values(summary)
+    assert values["finding_count"] == "2"
+    assert values["website"] == "one.example、two.example"
+    assert values["source"] == "XposedOrNot、Have I Been Pwned"
+    assert values["earliest_breach"] == "2020-01-01 · Older"
+    assert values["record_count"] == "30"

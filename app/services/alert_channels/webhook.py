@@ -6,7 +6,7 @@ import httpx
 from app.core.crypto import crypto_service
 from app.models.models import Finding
 from app.services.alert_channels.base import AlertChannelBase
-from app.services.alert_templates import render_body
+from app.services.alert_templates import render_body, severity_label
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class WebhookChannel(AlertChannelBase):
         payload = {
             "msgtype": "markdown",
             "markdown": {
-                "title": f"[S{finding.severity}] 数据泄漏告警",
+                "title": f"[{severity_label(finding.severity)}] 数据泄漏告警",
                 "text": content,
                 "content": content,
             },

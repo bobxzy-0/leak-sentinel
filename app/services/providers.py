@@ -147,12 +147,15 @@ class XposedOrNotProvider:
         for attempt in range(3):
             try:
                 response = await client.get(
-                    url, headers={"user-agent": "leak-sentinel/1.0", "accept": "application/json"},
+                    url, headers={
+                        "user-agent": "leak-sentinel/1.0 (+https://github.com/bobxzy-0/leak-sentinel)",
+                        "accept": "application/json",
+                    },
                     follow_redirects=True,
                 )
                 if response.status_code == 404:
                     return None
-                if response.status_code == 429 or response.status_code >= 500:
+                if response.status_code in (403, 429) or response.status_code >= 500:
                     last_error = RuntimeError(
                         f"XposedOrNot HTTP {response.status_code}: {response.text[:180]}"
                     )
@@ -173,13 +176,13 @@ class XposedOrNotProvider:
             return []
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
             if asset_type == AssetTypeEnum.email:
-                analytics_url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics?email={quote(value)}"
+                check_url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}?details=true"
                 try:
-                    payload = await self._request_json(client, analytics_url)
-                except RuntimeError:
+                    payload = await self._request_json(client, check_url)
+                except (RuntimeError, httpx.HTTPStatusError):
                     payload = await self._request_json(
                         client,
-                        f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}?details=true",
+                        f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics?email={quote(value)}",
                     )
             else:
                 return []

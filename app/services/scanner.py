@@ -84,6 +84,7 @@ async def scan_asset(
         outcomes = filter_outcomes_by_sites(outcomes, asset.watched_sites_json)
     results = [result for outcome in outcomes for result in outcome.results]
     created = 0
+    new_findings = []
     for result in results:
         digest = fingerprint(asset.id, result)
         if db.query(Finding.id).filter(Finding.fingerprint == digest).first():
@@ -99,8 +100,10 @@ async def scan_asset(
         db.add(finding)
         db.commit()
         db.refresh(finding)
-        await AlertDispatcher(db).dispatch(finding)
+        new_findings.append(finding)
         created += 1
+    if new_findings:
+        await AlertDispatcher(db).dispatch_batch(new_findings)
     checked_at = datetime.utcnow()
     if provider_name is None:
         asset.last_checked_at = checked_at

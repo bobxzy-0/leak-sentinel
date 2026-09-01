@@ -22,11 +22,12 @@
 - **最早泄漏事件**：{earliest_breach}
 - **泄漏字段**：{data_classes}
 - **影响记录**：{record_count}
-- **事件标识**：{external_ref}
+- **风险等级**：{severity}
+- **新增事件**：{finding_count} 个
 - **系统发现时间**：{detected_at}
 
 **处置建议**：
-{recommendations}</textarea><span class="block mt-1 text-xs text-slate-400">可用：{website_list} {source} {asset} {asset_type} {asset_value} {earliest_breach} {data_classes} {record_count} {external_ref} {severity} {detected_at} {recommendations}</span></label>
+{recommendations}</textarea><span class="block mt-1 text-xs text-slate-400">可用：{website_list} {source} {asset} {asset_type} {asset_value} {earliest_breach} {data_classes} {record_count} {finding_count} {external_ref} {severity} {detected_at} {recommendations}</span></label>
 <div id="smtp-note" class="hidden md:col-span-2 text-xs {% if smtp_ready %}text-emerald-600{% else %}text-amber-600{% endif %}">{{ 'SMTP 配置已就绪' if smtp_ready else '请先在环境文件配置 SMTP_HOST 和 SMTP_FROM' }}</div>
 <div class="md:col-span-2 pt-2 flex items-center justify-between gap-3"><span id="channel-error" class="text-sm text-rose-600"></span><div class="flex gap-3"><button type="button" onclick="closeChannelModal()" class="border border-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-sm">取消</button><button type="button" onclick="createChannel()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm">添加通道</button></div></div>
 </form></div></div>
