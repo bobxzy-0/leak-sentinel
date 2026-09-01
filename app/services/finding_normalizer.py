@@ -67,9 +67,62 @@ def _site(value: str) -> str:
     return parsed.hostname or value
 
 
+def _normalize_hudson_rock(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize Cavalier statistics without treating summary counters as breach rows."""
+    domain_data = data.get("data") if isinstance(data.get("data"), dict) else {}
+    url_rows = domain_data.get("all_urls") or []
+    urls = []
+    for row in url_rows:
+        value = row.get("url") if isinstance(row, dict) else row
+        if isinstance(value, str) and value:
+            urls.append(value)
+    if not urls:
+        urls = _strings(_values_for_keys(data, SITE_KEYS))
+    websites = list(dict.fromkeys(_site(value) for value in urls if value))
+
+    dates = _strings(_values_for_keys(data, DATE_KEYS | {
+        "date_compromised", "last_employee_compromised", "last_user_compromised",
+    }))
+    corporate = data.get("total_corporate_services", 0)
+    users = data.get("total_user_services", 0)
+    if isinstance(data.get("total"), int) and data["total"] > 0:
+        total = data["total"]
+    else:
+        total = sum(value for value in (corporate, users) if isinstance(value, int))
+        if not total and isinstance(data.get("stealers"), list):
+            total = len(data["stealers"])
+        if not total and isinstance(data.get("totalStealers"), int):
+            total = data["totalStealers"]
+
+    if "total" in data:
+        fields = ["登录网站", "员工/用户凭据统计", "信息窃取器感染统计"]
+        description = (
+            f"Hudson Rock 域名暴露统计：员工 {data.get('employees', 0)}，"
+            f"用户 {data.get('users', 0)}，第三方 {data.get('third_parties', 0)}。"
+        )
+    else:
+        fields = ["登录网站", "凭据记录", "受感染设备信息"]
+        description = (
+            f"Hudson Rock 账号暴露统计：企业服务 {corporate or 0}，"
+            f"个人服务 {users or 0}，信息窃取器记录 {len(data.get('stealers') or [])}。"
+        )
+    return {
+        "source_label": "Hudson Rock",
+        "title": "Infostealer 暴露统计",
+        "websites": websites,
+        "breach_time": min(dates) if dates else "",
+        "data_classes": fields,
+        "description": description,
+        "reference": "",
+        "record_count": total,
+    }
+
+
 def normalize_finding(source: str, data: dict[str, Any] | None) -> dict[str, Any]:
     """Convert provider-specific response fields into one stable detail schema."""
     data = data or {}
+    if source == "hudson_rock":
+        return _normalize_hudson_rock(data)
     sites = [_site(value) for value in _strings(_values_for_keys(data, SITE_KEYS))]
     dates = _strings(_values_for_keys(data, DATE_KEYS))
     fields = _strings(_values_for_keys(data, FIELD_KEYS))

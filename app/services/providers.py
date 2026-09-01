@@ -63,11 +63,21 @@ class HudsonRockProvider:
     def _total(payload: Any) -> int:
         if not isinstance(payload, dict):
             return 0
-        for key in ("total", "totalEmployees", "total_corporate_services", "total_user_services"):
+        total = payload.get("total")
+        if isinstance(total, int) and total > 0:
+            return total
+        service_total = sum(
+            payload.get(key, 0) for key in ("total_corporate_services", "total_user_services")
+            if isinstance(payload.get(key, 0), int)
+        )
+        if service_total:
+            return service_total
+        for key in ("totalStealers", "totalEmployees"):
             value = payload.get(key)
-            if isinstance(value, int):
+            if isinstance(value, int) and value > 0:
                 return value
-        return sum(len(value) for value in payload.values() if isinstance(value, list))
+        stealers = payload.get("stealers")
+        return len(stealers) if isinstance(stealers, list) else 0
 
     @staticmethod
     def _severity(total: int) -> int:
