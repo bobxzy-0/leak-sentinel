@@ -3,13 +3,12 @@ from fastapi.templating import Jinja2Templates
 import os
 from datetime import datetime, timedelta
 from app.api.deps import get_current_user
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.models import AlertChannel, AlertLog, Finding, MonitoredAsset, ProviderCallLog
 from app.core.crypto import crypto_service, mask_sensitive_value
 from app.core.config import settings
 from app.core.database import get_db
-from app.services.finding_normalizer import normalize_finding
+from app.services.finding_normalizer import is_actionable_finding, normalize_finding
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
@@ -34,9 +33,13 @@ async def view_dashboard(request: Request, user = Depends(get_current_user), db:
         raise HTTPException(status_code=401)
     assets_count = db.query(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id).count()
     since = datetime.utcnow() - timedelta(days=7)
-    new_findings_count = db.query(Finding).join(MonitoredAsset).filter(
+    recent_stored_findings = db.query(Finding).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id, Finding.first_seen_at >= since
-    ).count()
+    ).all()
+    new_findings_count = sum(
+        is_actionable_finding(item.source.value, item.raw_data_json)
+        for item in recent_stored_findings
+    )
     calls = db.query(ProviderCallLog).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id, ProviderCallLog.called_at >= since
     )
@@ -45,9 +48,13 @@ async def view_dashboard(request: Request, user = Depends(get_current_user), db:
     recent_calls = db.query(ProviderCallLog).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id
     ).order_by(ProviderCallLog.called_at.desc()).limit(10).all()
-    recent_findings = db.query(Finding).join(MonitoredAsset).filter(
+    stored_findings = db.query(Finding).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id
-    ).order_by(Finding.first_seen_at.desc()).limit(10).all()
+    ).order_by(Finding.first_seen_at.desc()).all()
+    recent_findings = [
+        item for item in stored_findings
+        if is_actionable_finding(item.source.value, item.raw_data_json)
+    ][:10]
     for finding in recent_findings:
         finding.normalized = normalize_finding(finding.source.value, finding.raw_data_json)
     sources = _source_statuses()
@@ -69,22 +76,22 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
     assets = db.query(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id).order_by(
         MonitoredAsset.sort_order.asc(), MonitoredAsset.id.asc()
     ).all()
-    finding_counts = db.query(
-        Finding.asset_id, Finding.source, func.count(Finding.id)
-    ).join(MonitoredAsset).filter(
+    stored_findings = db.query(Finding).join(MonitoredAsset).filter(
         MonitoredAsset.owner_id == user.id
-    ).group_by(Finding.asset_id, Finding.source).all()
+    ).all()
     source_providers = {
         "hibp_breach": "hibp", "hibp_paste": "hibp", "hibp_stealer_log": "hibp",
         "pwned_password": "pwned_passwords", "hudson_rock": "hudson_rock",
         "xposedornot": "xposedornot", "leakcheck": "leakcheck",
     }
     findings_by_asset: dict[int, dict[str, int]] = {}
-    for asset_id, source, count in finding_counts:
-        provider = source_providers.get(source.value)
+    for finding in stored_findings:
+        if not is_actionable_finding(finding.source.value, finding.raw_data_json):
+            continue
+        provider = source_providers.get(finding.source.value)
         if provider:
-            provider_counts = findings_by_asset.setdefault(asset_id, {})
-            provider_counts[provider] = provider_counts.get(provider, 0) + count
+            provider_counts = findings_by_asset.setdefault(finding.asset_id, {})
+            provider_counts[provider] = provider_counts.get(provider, 0) + 1
     for asset in assets:
         if asset.value_ciphertext:
             value = crypto_service.decrypt(asset.value_ciphertext)

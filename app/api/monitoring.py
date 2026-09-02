@@ -13,7 +13,7 @@ from app.core.crypto import crypto_service
 from app.core.database import get_db
 from app.models.models import AlertChannel, AlertLog, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, ProviderCallLog, User
 from app.services.providers import HudsonRockProvider
-from app.services.finding_normalizer import normalize_finding
+from app.services.finding_normalizer import is_actionable_finding, normalize_finding
 from app.services.scanner import scan_asset
 from app.services.alert_channels.dingtalk import DingTalkChannel
 from app.services.alert_channels.email import EmailChannel
@@ -122,8 +122,13 @@ def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, p
     }
     if provider in source_groups:
         query = query.filter(Finding.source.in_(source_groups[provider]))
-    total = query.count()
-    items = query.order_by(Finding.first_seen_at.desc()).offset(skip).limit(limit).all()
+    stored_items = query.order_by(Finding.first_seen_at.desc()).all()
+    actionable_items = [
+        item for item in stored_items
+        if is_actionable_finding(item.source.value, item.raw_data_json)
+    ]
+    total = len(actionable_items)
+    items = actionable_items[skip:skip + limit]
     return {"total": total, "items": [{
         "id": item.id, "source": item.source.value, "external_ref": item.external_ref,
         "severity": item.severity, "first_seen_at": item.first_seen_at,

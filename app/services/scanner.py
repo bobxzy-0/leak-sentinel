@@ -82,7 +82,12 @@ async def scan_asset(
     )
     if asset.site_filter_mode == "only" and asset.watched_sites_json:
         outcomes = filter_outcomes_by_sites(outcomes, asset.watched_sites_json)
-    results = [result for outcome in outcomes for result in outcome.results]
+    # Some providers return a statistics envelope even when its authoritative
+    # match count is zero. Keep it in the call log, but never persist it as a leak.
+    results = [
+        result for outcome in outcomes if outcome.status == "found"
+        for result in outcome.results
+    ]
     created = 0
     new_findings = []
     for result in results:

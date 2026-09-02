@@ -158,3 +158,11 @@ def normalize_finding(source: str, data: dict[str, Any] | None) -> dict[str, Any
         "reference": reference,
         "record_count": record_count,
     }
+
+
+def is_actionable_finding(source: str, data: dict[str, Any] | None) -> bool:
+    """Exclude provider envelope responses that explicitly report zero matches."""
+    payload = data or {}
+    if source == "hudson_rock" and isinstance(payload.get("total"), int):
+        return payload["total"] > 0
+    return True

@@ -1,4 +1,4 @@
-from app.services.finding_normalizer import normalize_finding
+from app.services.finding_normalizer import is_actionable_finding, normalize_finding
 
 
 def test_xposedornot_fields_are_normalized():
@@ -51,6 +51,10 @@ def test_hudson_global_corpus_size_is_not_a_domain_match():
     })
     assert result["record_count"] == 0
     assert result["websites"] == []
+    assert not is_actionable_finding("hudson_rock", {
+        "total": 0, "totalStealers": 36266308,
+    })
+    assert is_actionable_finding("hudson_rock", {"total": 2})
 
 
 def test_provider_specific_fallbacks_are_not_reported_as_missing():
