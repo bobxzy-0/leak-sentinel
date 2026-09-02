@@ -16,11 +16,11 @@ TEST_ENGINE = create_engine(
 TestSession = sessionmaker(bind=TEST_ENGINE)
 
 
-def _asset(db, user_id, *, status=AssetStatusEnum.active, checked_at=None):
+def _asset(db, user_id, *, status=AssetStatusEnum.active, checked_at=None, automatic_checked_at=None):
     asset = MonitoredAsset(
         owner_id=user_id, asset_type=AssetTypeEnum.domain,
         value_ciphertext="encrypted", value_hash="hash", status=status,
-        last_checked_at=checked_at,
+        last_checked_at=checked_at, last_automatic_checked_at=automatic_checked_at,
     )
     db.add(asset)
     db.commit()
@@ -34,9 +34,12 @@ def test_automatic_job_scans_only_due_assets():
     db.add(user)
     db.commit()
     due = _asset(db, user.id)
-    old = _asset(db, user.id, checked_at=datetime.utcnow() - timedelta(hours=25))
-    due_ids = {due.id, old.id}
-    _asset(db, user.id, checked_at=datetime.utcnow() - timedelta(hours=1))
+    old_time = datetime.utcnow() - timedelta(hours=25)
+    old = _asset(db, user.id, checked_at=old_time, automatic_checked_at=old_time)
+    manual_recent = _asset(db, user.id, checked_at=datetime.utcnow() - timedelta(hours=1))
+    due_ids = {due.id, old.id, manual_recent.id}
+    recent_time = datetime.utcnow() - timedelta(hours=1)
+    _asset(db, user.id, checked_at=recent_time, automatic_checked_at=recent_time)
     _asset(db, user.id, status=AssetStatusEnum.paused)
     db.close()
 
@@ -48,5 +51,5 @@ def test_automatic_job_scans_only_due_assets():
 
     assert {call.args[1].id for call in scanner.await_args_list} == due_ids
     assert all(call.kwargs["trigger"] == "automatic" for call in scanner.await_args_list)
-    assert result == {"scanned": 2, "failed": 0, "skipped_recent": 1}
+    assert result == {"scanned": 3, "failed": 0, "skipped_recent": 1}
     Base.metadata.drop_all(bind=TEST_ENGINE)

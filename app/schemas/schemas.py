@@ -41,6 +41,7 @@ class AssetResponse(BaseModel):
     status: AssetStatusEnum
     is_domain_verified: bool
     last_checked_at: Optional[datetime]
+    last_automatic_checked_at: Optional[datetime] = None
     sort_order: int
     site_filter_mode: str
     watched_sites: list[str]

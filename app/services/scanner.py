@@ -107,6 +107,8 @@ async def scan_asset(
     checked_at = datetime.utcnow()
     if provider_name is None:
         asset.last_checked_at = checked_at
+        if trigger == "automatic":
+            asset.last_automatic_checked_at = checked_at
     provider_states = dict(asset.provider_status_json or {}) if provider_name else {}
     provider_states.update({
         outcome.provider: {

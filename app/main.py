@@ -47,6 +47,11 @@ def ensure_schema_compatibility():
             connection.execute(text(
                 "ALTER TABLE monitored_assets ADD COLUMN watched_sites_json JSON"
             ))
+    if "last_automatic_checked_at" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE monitored_assets ADD COLUMN last_automatic_checked_at TIMESTAMP"
+            ))
     inspector = inspect(engine)
     if "provider_call_logs" in inspector.get_table_names():
         call_columns = {column["name"] for column in inspector.get_columns("provider_call_logs")}

@@ -60,6 +60,7 @@ class MonitoredAsset(Base):
     status = Column(Enum(AssetStatusEnum), default=AssetStatusEnum.active)
     is_domain_verified = Column(Boolean, default=False)
     last_checked_at = Column(DateTime, nullable=True)
+    last_automatic_checked_at = Column(DateTime, nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     provider_status_json = Column(JSON, nullable=True)
     site_filter_mode = Column(String, nullable=False, default="all")

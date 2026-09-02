@@ -27,7 +27,10 @@ async def scan_assets_job():
         ).count()
         assets = db.query(MonitoredAsset).filter(
             MonitoredAsset.status == AssetStatusEnum.active,
-            or_(MonitoredAsset.last_checked_at.is_(None), MonitoredAsset.last_checked_at <= cutoff),
+            or_(
+                MonitoredAsset.last_automatic_checked_at.is_(None),
+                MonitoredAsset.last_automatic_checked_at <= cutoff,
+            ),
         ).all()
         logger.info(
             "Automatic scan started: eligible=%s skipped_recent=%s cutoff=%s",
