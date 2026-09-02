@@ -154,6 +154,16 @@ class XposedOrNotProvider:
     def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
         return settings.XPOSEDORNOT_ENABLED and asset_type == AssetTypeEnum.email
 
+    @staticmethod
+    def _breach_details(payload: dict[str, Any]) -> list[dict[str, Any]]:
+        details = ((payload.get("ExposedBreaches") or {}).get("breaches_details") or [])
+        if details:
+            return [item if isinstance(item, dict) else {"breach": str(item)} for item in details]
+        breaches = payload.get("breaches") or []
+        if len(breaches) == 1 and isinstance(breaches[0], list):
+            breaches = breaches[0]
+        return [item if isinstance(item, dict) else {"breach": str(item)} for item in breaches]
+
     async def _request_json(self, client: httpx.AsyncClient, url: str) -> dict[str, Any] | None:
         last_error = None
         for attempt in range(3):
@@ -188,24 +198,16 @@ class XposedOrNotProvider:
             return []
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
             if asset_type == AssetTypeEnum.email:
-                check_url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}?details=true"
-                try:
-                    payload = await self._request_json(client, check_url)
-                except (RuntimeError, httpx.HTTPStatusError):
-                    payload = await self._request_json(
-                        client,
-                        f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics?email={quote(value)}",
-                    )
+                # The keyless community endpoint returns breach names. Detailed analytics may
+                # require additional authorization and must not be used as a 403 fallback.
+                check_url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}"
+                payload = await self._request_json(client, check_url)
             else:
                 return []
         if not payload or payload.get("Error") or payload.get("status") == "Not Found":
             return []
         if asset_type == AssetTypeEnum.email:
-            details = ((payload.get("ExposedBreaches") or {}).get("breaches_details") or [])
-            if not details:
-                details = payload.get("breaches") or []
-                if len(details) == 1 and isinstance(details[0], list):
-                    details = details[0]
+            details = self._breach_details(payload)
         results = []
         for index, item in enumerate(details):
             if not isinstance(item, dict):

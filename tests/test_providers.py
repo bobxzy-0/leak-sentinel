@@ -25,3 +25,10 @@ def test_free_providers_support_expected_asset_types():
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.email)
     assert LeakCheckProvider().is_enabled_for(AssetTypeEnum.username)
     assert not LeakCheckProvider().is_enabled_for(AssetTypeEnum.password)
+
+
+def test_xposedornot_parses_free_nested_breach_names():
+    details = XposedOrNotProvider._breach_details({
+        "breaches": [["Adobe", "LinkedIn"]], "status": "success",
+    })
+    assert details == [{"breach": "Adobe"}, {"breach": "LinkedIn"}]
