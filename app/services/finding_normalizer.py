@@ -85,14 +85,12 @@ def _normalize_hudson_rock(data: dict[str, Any]) -> dict[str, Any]:
     }))
     corporate = data.get("total_corporate_services", 0)
     users = data.get("total_user_services", 0)
-    if isinstance(data.get("total"), int) and data["total"] > 0:
+    if isinstance(data.get("total"), int):
         total = data["total"]
     else:
         total = sum(value for value in (corporate, users) if isinstance(value, int))
         if not total and isinstance(data.get("stealers"), list):
             total = len(data["stealers"])
-        if not total and isinstance(data.get("totalStealers"), int):
-            total = data["totalStealers"]
 
     if "total" in data:
         fields = ["登录网站", "员工/用户凭据统计", "信息窃取器感染统计"]

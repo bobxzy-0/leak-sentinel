@@ -64,7 +64,9 @@ class HudsonRockProvider:
         if not isinstance(payload, dict):
             return 0
         total = payload.get("total")
-        if isinstance(total, int) and total > 0:
+        # Domain responses always include `total`. `totalStealers` is the
+        # provider-wide corpus size, not the queried domain's match count.
+        if isinstance(total, int):
             return total
         service_total = sum(
             payload.get(key, 0) for key in ("total_corporate_services", "total_user_services")
@@ -72,7 +74,7 @@ class HudsonRockProvider:
         )
         if service_total:
             return service_total
-        for key in ("totalStealers", "totalEmployees"):
+        for key in ("totalEmployees",):
             value = payload.get(key)
             if isinstance(value, int) and value > 0:
                 return value

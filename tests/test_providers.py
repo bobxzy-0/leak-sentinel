@@ -7,6 +7,7 @@ from app.services.providers import (
 def test_hudson_total_and_severity():
     provider = HudsonRockProvider()
     assert provider._total({"total": 12}) == 12
+    assert provider._total({"total": 0, "totalStealers": 36266308}) == 0
     assert provider._total({"stealers": [{}, {}]}) == 2
     assert provider._total({"total_corporate_services": 0, "total_user_services": 5}) == 5
     assert provider._severity(1) == 2

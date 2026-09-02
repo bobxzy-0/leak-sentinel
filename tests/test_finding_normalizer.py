@@ -43,6 +43,16 @@ def test_hudson_email_counts_both_service_groups():
     assert result["breach_time"] == "2024-01-01"
 
 
+def test_hudson_global_corpus_size_is_not_a_domain_match():
+    result = normalize_finding("hudson_rock", {
+        "total": 0, "totalStealers": 36266308, "employees": 0, "users": 0,
+        "third_parties": 0, "data": {"employees_urls": [], "clients_urls": [], "all_urls": []},
+        "totalUrls": 0,
+    })
+    assert result["record_count"] == 0
+    assert result["websites"] == []
+
+
 def test_provider_specific_fallbacks_are_not_reported_as_missing():
     assert normalize_finding("pwned_password", {"count": 42})["data_classes"] == ["密码"]
     assert normalize_finding("intelligence_x", {"bucket": "leaks.public"})["data_classes"] == ["leaks.public"]
