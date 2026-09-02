@@ -9,7 +9,7 @@
 - 域名、邮箱、用户名、密码、API 密钥、令牌六类监控对象
 - Hudson Rock Community OSINT：域名、邮箱、用户名的 infostealer 暴露统计
 - Have I Been Pwned v3：邮箱泄漏事件（需要 HIBP API Key）
-- XposedOrNot：免费免密的邮箱泄漏名称检查（高级分析接口不作为免费回退）
+- XposedOrNot：免费免密的邮箱泄漏分析（直接调用 breach-analytics）
 - LeakCheck：免费查询邮箱、用户名的泄漏来源和字段；可选 Pro API Key
 - 定时或立即扫描；SHA-256 内容指纹去重，只对新增结果告警
 - 资产拖动排序；手动检测后 24 小时内自动任务跳过，保证每天最多自动检查一次

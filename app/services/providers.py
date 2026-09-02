@@ -150,6 +150,9 @@ class XposedOrNotProvider:
     """Free, keyless XposedOrNot email breach analytics."""
 
     name = "xposedornot"
+    _request_lock = asyncio.Lock()
+    _last_request_at = 0.0
+    _minimum_interval_seconds = 13.0
 
     def is_enabled_for(self, asset_type: AssetTypeEnum) -> bool:
         return settings.XPOSEDORNOT_ENABLED and asset_type == AssetTypeEnum.email
@@ -168,6 +171,13 @@ class XposedOrNotProvider:
         last_error = None
         for attempt in range(3):
             try:
+                async with self._request_lock:
+                    wait_seconds = self._minimum_interval_seconds - (
+                        time.monotonic() - self._last_request_at
+                    )
+                    if wait_seconds > 0:
+                        await asyncio.sleep(wait_seconds)
+                    self.__class__._last_request_at = time.monotonic()
                 response = await client.get(
                     url, headers={
                         "user-agent": "leak-sentinel/1.0 (+https://github.com/bobxzy-0/leak-sentinel)",
@@ -177,7 +187,12 @@ class XposedOrNotProvider:
                 )
                 if response.status_code == 404:
                     return None
-                if response.status_code in (403, 429) or response.status_code >= 500:
+                if response.status_code == 403:
+                    raise RuntimeError(
+                        "XposedOrNot HTTP 403：当前服务器出口 IP 已被上游拒绝；"
+                        "可能因超过免费接口频率而被封禁 24 小时，请稍后再试"
+                    )
+                if response.status_code == 429 or response.status_code >= 500:
                     last_error = RuntimeError(
                         f"XposedOrNot HTTP {response.status_code}: {response.text[:180]}"
                     )
@@ -198,10 +213,13 @@ class XposedOrNotProvider:
             return []
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
             if asset_type == AssetTypeEnum.email:
-                # The keyless community endpoint returns breach names. Detailed analytics may
-                # require additional authorization and must not be used as a 403 fallback.
-                check_url = f"{settings.XPOSEDORNOT_BASE_URL}/v1/check-email/{quote(value)}"
-                payload = await self._request_json(client, check_url)
+                # Use the community analytics endpoint directly. Calling check-email first can
+                # be rejected by the upstream WAF and also wastes one request before analytics.
+                analytics_url = (
+                    f"{settings.XPOSEDORNOT_BASE_URL}/v1/breach-analytics"
+                    f"?email={quote(value, safe='')}"
+                )
+                payload = await self._request_json(client, analytics_url)
             else:
                 return []
         if not payload or payload.get("Error") or payload.get("status") == "Not Found":

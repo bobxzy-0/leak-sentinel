@@ -32,3 +32,10 @@ def test_xposedornot_parses_free_nested_breach_names():
         "breaches": [["Adobe", "LinkedIn"]], "status": "success",
     })
     assert details == [{"breach": "Adobe"}, {"breach": "LinkedIn"}]
+
+
+def test_xposedornot_parses_analytics_details():
+    details = XposedOrNotProvider._breach_details({
+        "ExposedBreaches": {"breaches_details": [{"breach": "Adobe", "xposed_date": "2013"}]},
+    })
+    assert details == [{"breach": "Adobe", "xposed_date": "2013"}]
