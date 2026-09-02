@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.crypto import crypto_service
 from app.models.models import Finding, FindingSourceEnum, MonitoredAsset, ProviderCallLog
 from app.services.alert_dispatcher import AlertDispatcher
+from app.services.finding_normalizer import normalize_finding
 from app.services.providers import ProviderRegistry, ProviderResult
 
 SITE_KEYS = ("url", "domain", "website", "host", "service")
@@ -68,8 +69,24 @@ def filter_outcomes_by_sites(outcomes, patterns: list[str]):
     return filtered
 
 
+def finding_signature(source: str, external_ref: str, severity: int, data: dict) -> str:
+    normalized = normalize_finding(source, data)
+    meaningful = {
+        "external_ref": external_ref,
+        "severity": severity,
+        "title": normalized.get("title") or "",
+        "websites": sorted(set(normalized.get("websites") or [])),
+        "breach_time": normalized.get("breach_time") or "",
+        "data_classes": sorted(set(normalized.get("data_classes") or [])),
+        "description": normalized.get("description") or "",
+        "reference": normalized.get("reference") or "",
+        "record_count": normalized.get("record_count"),
+    }
+    return json.dumps(meaningful, sort_keys=True, separators=(",", ":"), default=str)
+
+
 def fingerprint(asset_id: int, result: ProviderResult) -> str:
-    stable = json.dumps(result.data, sort_keys=True, separators=(",", ":"), default=str)
+    stable = finding_signature(result.source, result.external_ref, result.severity, result.data)
     return hashlib.sha256(f"{asset_id}:{result.source}:{result.external_ref}:{stable}".encode()).hexdigest()
 
 
@@ -93,6 +110,22 @@ async def scan_asset(
     for result in results:
         digest = fingerprint(asset.id, result)
         if db.query(Finding.id).filter(Finding.fingerprint == digest).first():
+            continue
+        # Compatibility with findings saved before semantic fingerprints were introduced.
+        previous_versions = db.query(Finding).filter(
+            Finding.asset_id == asset.id,
+            Finding.source == FindingSourceEnum(result.source),
+            Finding.external_ref == result.external_ref,
+        ).all()
+        current_signature = finding_signature(
+            result.source, result.external_ref, result.severity, result.data,
+        )
+        if any(
+            finding_signature(
+                item.source.value, item.external_ref, item.severity, item.raw_data_json or {},
+            ) == current_signature
+            for item in previous_versions
+        ):
             continue
         finding = Finding(
             asset_id=asset.id,
