@@ -3,6 +3,7 @@ from fastapi.templating import Jinja2Templates
 import os
 from datetime import datetime, timedelta
 from app.api.deps import get_current_user
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.models import AlertChannel, AlertLog, Finding, MonitoredAsset, ProviderCallLog
 from app.core.crypto import crypto_service, mask_sensitive_value
@@ -68,12 +69,37 @@ async def view_assets(request: Request, user = Depends(get_current_user), db: Se
     assets = db.query(MonitoredAsset).filter(MonitoredAsset.owner_id == user.id).order_by(
         MonitoredAsset.sort_order.asc(), MonitoredAsset.id.asc()
     ).all()
+    finding_counts = db.query(
+        Finding.asset_id, Finding.source, func.count(Finding.id)
+    ).join(MonitoredAsset).filter(
+        MonitoredAsset.owner_id == user.id
+    ).group_by(Finding.asset_id, Finding.source).all()
+    source_providers = {
+        "hibp_breach": "hibp", "hibp_paste": "hibp", "hibp_stealer_log": "hibp",
+        "pwned_password": "pwned_passwords", "hudson_rock": "hudson_rock",
+        "xposedornot": "xposedornot", "leakcheck": "leakcheck",
+    }
+    findings_by_asset: dict[int, dict[str, int]] = {}
+    for asset_id, source, count in finding_counts:
+        provider = source_providers.get(source.value)
+        if provider:
+            provider_counts = findings_by_asset.setdefault(asset_id, {})
+            provider_counts[provider] = provider_counts.get(provider, 0) + count
     for asset in assets:
         if asset.value_ciphertext:
             value = crypto_service.decrypt(asset.value_ciphertext)
             asset.value = mask_sensitive_value(value, asset.asset_type.value) if asset.asset_type.value in ("password", "api_key", "token") else value
         else:
             asset.value = ""
+        states = {key: dict(value) for key, value in (asset.provider_status_json or {}).items()}
+        for provider, count in findings_by_asset.get(asset.id, {}).items():
+            state = states.setdefault(provider, {})
+            # A failed latest call remains yellow so its error and retry action stay accessible.
+            # Otherwise persisted findings must not be represented by a green "clean" icon.
+            if state.get("status") != "error":
+                state["status"] = "found"
+                state["count"] = count
+        asset.provider_status_json = states
     return templates.TemplateResponse(request=request, name="fragments/assets.html", context={
         "assets": assets, "leakcheck_pro": bool(settings.LEAKCHECK_API_KEY),
     })
