@@ -8,10 +8,12 @@ from app.models.models import AlertChannel, AlertLog, Finding, MonitoredAsset, P
 from app.core.crypto import crypto_service, mask_sensitive_value
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.time import format_localtime
 from app.services.finding_normalizer import is_actionable_finding, normalize_finding
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
+templates.env.filters["localtime"] = format_localtime
 
 APP_NAME = settings.APP_NAME
 

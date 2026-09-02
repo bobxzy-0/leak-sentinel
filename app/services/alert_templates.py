@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.core.crypto import crypto_service
+from app.core.time import format_localtime
 from app.services.finding_normalizer import normalize_finding
 
 
@@ -114,7 +115,7 @@ def finding_values(finding: Any) -> dict[str, str]:
         "finding_count": str(len(findings)),
         "external_ref": str(getattr(finding, "external_ref", "未知")),
         "severity": severity_label(getattr(finding, "severity", 0)),
-        "detected_at": str(getattr(finding, "first_seen_at", "未知")),
+        "detected_at": format_localtime(getattr(finding, "first_seen_at", None)) or "未知",
         "recommendations": _recommendations(asset_type),
     }
 

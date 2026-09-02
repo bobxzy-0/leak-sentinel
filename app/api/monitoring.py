@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.crypto import crypto_service
 from app.core.database import get_db
+from app.core.time import format_localtime
 from app.models.models import AlertChannel, AlertLog, AssetTypeEnum, ChannelTypeEnum, Finding, MonitoredAsset, ProviderCallLog, User
 from app.services.providers import HudsonRockProvider
 from app.services.finding_normalizer import is_actionable_finding, normalize_finding
@@ -131,7 +132,7 @@ def list_findings(skip: int = 0, limit: int = 50, asset_id: int | None = None, p
     items = actionable_items[skip:skip + limit]
     return {"total": total, "items": [{
         "id": item.id, "source": item.source.value, "external_ref": item.external_ref,
-        "severity": item.severity, "first_seen_at": item.first_seen_at,
+        "severity": item.severity, "first_seen_at": format_localtime(item.first_seen_at),
         "normalized": normalize_finding(item.source.value, item.raw_data_json),
         "data": item.raw_data_json or {},
     } for item in items]}

@@ -76,7 +76,7 @@
                             {% if not visible_providers %}<span class="text-xs text-slate-400">暂无适用情报源</span>{% endif %}
                         </div>
                     </td>
-                    <td class="px-4 py-4 text-slate-500 overflow-hidden"><div class="truncate" title="{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M:%S') if asset.last_checked_at else '从未' }}">{{ asset.last_checked_at.strftime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</div></td>
+                    <td class="px-4 py-4 text-slate-500 overflow-hidden"><div class="truncate" title="{{ asset.last_checked_at|localtime('%Y-%m-%d %H:%M:%S') if asset.last_checked_at else '从未' }}">{{ asset.last_checked_at|localtime('%Y-%m-%d %H:%M') if asset.last_checked_at else '从未' }}</div></td>
                     <td class="px-4 py-4 text-right space-x-3 overflow-hidden">
                         {% if asset.asset_type.value not in ('password', 'api_key', 'token') %}<button onclick='editAssetScope({{ asset.id }}, {{ (asset.watched_sites_json or [])|tojson }})' class="text-blue-600 hover:text-blue-900 font-medium">关注网站</button>{% endif %}
                         <button hx-post="/api/assets/{{ asset.id }}/scan" hx-swap="none" hx-disabled-elt="this" hx-on::before-request="this.textContent='检测中…'" hx-on::after-request="this.textContent='手动检测'; htmx.ajax('GET', '/views/assets', {target: '#main-content'})" class="text-emerald-600 hover:text-emerald-900 font-medium transition-colors">手动检测</button>

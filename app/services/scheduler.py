@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from time import monotonic
+from zoneinfo import ZoneInfo
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -64,13 +65,14 @@ def init_scheduler():
     global scheduler
     if scheduler is not None and scheduler.running:
         return
-    scheduler = AsyncIOScheduler(event_loop=asyncio.get_running_loop(), timezone=timezone.utc)
+    app_timezone = ZoneInfo(settings.APP_TIMEZONE)
+    scheduler = AsyncIOScheduler(event_loop=asyncio.get_running_loop(), timezone=app_timezone)
     scheduler.add_listener(_log_job_event, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
     scheduler.add_job(
         scan_assets_job, "interval", minutes=settings.SCAN_INTERVAL_MINUTES,
         id="scan_assets", max_instances=1, coalesce=True,
         misfire_grace_time=max(300, settings.SCAN_INTERVAL_MINUTES * 60),
-        next_run_time=datetime.now(timezone.utc),
+        next_run_time=datetime.now(app_timezone),
     )
     scheduler.start()
     job = scheduler.get_job("scan_assets")

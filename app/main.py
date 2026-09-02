@@ -10,7 +10,7 @@ from app.services.scheduler import init_scheduler, shutdown_scheduler
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
-from app.models.models import User, RoleEnum
+from app.models.models import Finding, FindingSourceEnum, MonitoredAsset, ProviderCallLog, User, RoleEnum
 from sqlalchemy import inspect, text
 
 def ensure_schema_compatibility():
@@ -76,10 +76,45 @@ def ensure_admin():
     finally:
         db.close()
 
+
+def repair_hudson_rock_false_positive_logs():
+    """Repair historical logs created when totalStealers was mistaken for query matches."""
+    db = SessionLocal()
+    try:
+        false_findings = db.query(Finding).filter(
+            Finding.source == FindingSourceEnum.hudson_rock,
+        ).all()
+        for finding in false_findings:
+            payload = finding.raw_data_json or {}
+            corpus_total = payload.get("totalStealers")
+            if payload.get("total") != 0 or not isinstance(corpus_total, int):
+                continue
+            db.query(ProviderCallLog).filter(
+                ProviderCallLog.asset_id == finding.asset_id,
+                ProviderCallLog.provider == "hudson_rock",
+                ProviderCallLog.match_count == corpus_total,
+            ).update({
+                ProviderCallLog.status: "clean",
+                ProviderCallLog.match_count: 0,
+                ProviderCallLog.returned_count: 0,
+            }, synchronize_session=False)
+            asset = db.get(MonitoredAsset, finding.asset_id)
+            if asset:
+                states = {key: dict(value) for key, value in (asset.provider_status_json or {}).items()}
+                state = states.get("hudson_rock", {})
+                if state.get("status") == "found" and state.get("count") == corpus_total:
+                    state.update({"status": "clean", "count": 0, "returned_count": 0})
+                    states["hudson_rock"] = state
+                    asset.provider_status_json = states
+        db.commit()
+    finally:
+        db.close()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_schema_compatibility()
+    repair_hudson_rock_false_positive_logs()
     ensure_admin()
     init_scheduler()
     yield
